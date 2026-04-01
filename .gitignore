@@ -1,0 +1,33 @@
+# Local runtime/state (machine-specific, secrets, cache)
+config.ini
+seasonal_cache.json
+qbt_editor.log
+.app_secret.key
+.app_secret.key.*.bak
+
+# Python cache and test artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Coverage/build artifacts
+.coverage
+coverage.xml
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editor/OS artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

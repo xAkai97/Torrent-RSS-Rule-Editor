@@ -1,0 +1,6 @@
+requests
+qbittorrent-api
+configparser
+Pillow
+tkinterdnd2  # Optional: enables drag-and-drop file import
+cryptography  # Optional: encrypt credentials in config.ini when available
