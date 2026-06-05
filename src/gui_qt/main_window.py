@@ -802,64 +802,104 @@ def setup_gui_qt() -> None:
     is_dark_mode = theme_pref == 'dark'
 
     if is_dark_mode:
-        bg_color = '#0f172a'
-        text_color = '#f8fafc'
-        border_color = '#334155'
-        button_bg = '#334155'
-        button_hover = '#475569'
-        button_press = '#1e293b'
-        group_border = '#475569'
-        chip_bg = '#1e293b'
+        bg_color = '#121212'
+        surface_color = '#1e1e1e'
+        text_color = '#e3e2e6'
+        text_variant = '#a4a6b0'
+        border_color = '#3c4043'
+        primary_color = '#a8c7fa'
+        primary_container = '#004a77'
+        on_primary_container = '#c2e7ff'
+        button_bg = '#1e1e1e'
+        button_text = '#a8c7fa'
+        button_hover = '#2d2d30'
+        button_press = '#004a77'
+        disabled_bg = '#3c4043'
+        disabled_text = '#74777f'
+        input_bg = '#1e1e1e'
     else:
-        bg_color = '#f1f5f9'
-        text_color = '#0f172a'
-        border_color = '#cbd5e1'
-        button_bg = '#e2e8f0'
-        button_hover = '#cbd5e1'
-        button_press = '#94a3b8'
-        group_border = '#94a3b8'
-        chip_bg = '#ffffff'
+        bg_color = '#f8f9fa'
+        surface_color = '#ffffff'
+        text_color = '#1f1f1f'
+        text_variant = '#5f6368'
+        border_color = '#dadce0'
+        primary_color = '#1a73e8'
+        primary_container = '#e8f0fe'
+        on_primary_container = '#1a73e8'
+        button_bg = '#ffffff'
+        button_text = '#1a73e8'
+        button_hover = '#f1f3f4'
+        button_press = '#e8f0fe'
+        disabled_bg = '#f1f3f4'
+        disabled_text = '#9aa0a6'
+        input_bg = '#ffffff'
 
     stylesheet = f"""
         QMainWindow, QWidget, QDialog {{
             background-color: {bg_color};
             color: {text_color};
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-size: 13px;
         }}
         QMenuBar {{
-            background-color: {bg_color};
+            background-color: {surface_color};
             color: {text_color};
             border-bottom: 1px solid {border_color};
+            padding: 4px;
+        }}
+        QMenuBar::item {{
+            background-color: transparent;
+            padding: 6px 12px;
+            border-radius: 6px;
         }}
         QMenuBar::item:selected {{
             background-color: {button_hover};
         }}
         QMenu {{
-            background-color: {bg_color};
+            background-color: {surface_color};
             color: {text_color};
             border: 1px solid {border_color};
+            border-radius: 8px;
+            padding: 4px;
+        }}
+        QMenu::item {{
+            padding: 6px 24px;
+            border-radius: 4px;
         }}
         QMenu::item:selected {{
             background-color: {button_hover};
+            color: {primary_color};
+        }}
+        QMenu::separator {{
+            height: 1px;
+            background-color: {border_color};
+            margin: 4px 0;
         }}
         QGroupBox {{
-            color: {text_color};
-            border: 1px solid {group_border};
-            border-radius: 3px;
-            margin-top: 8px;
-            padding-top: 8px;
+            color: {primary_color};
+            font-weight: 600;
+            border: 1px solid {border_color};
+            border-radius: 12px;
+            margin-top: 14px;
+            padding-top: 14px;
+            background-color: {surface_color};
         }}
         QGroupBox::title {{
             subcontrol-origin: margin;
-            left: 8px;
-            padding: 0 3px;
+            subcontrol-position: top left;
+            left: 12px;
+            padding: 2px 6px;
+            background-color: {bg_color};
+            border-radius: 4px;
             font-size: 12px;
         }}
         QPushButton {{
             background-color: {button_bg};
-            color: {text_color};
+            color: {button_text};
             border: 1px solid {border_color};
-            border-radius: 2px;
-            padding: 5px 10px;
+            border-radius: 18px;
+            padding: 6px 16px;
+            font-weight: 500;
         }}
         QPushButton:hover {{
             background-color: {button_hover};
@@ -867,16 +907,127 @@ def setup_gui_qt() -> None:
         QPushButton:pressed {{
             background-color: {button_press};
         }}
-        QLineEdit, QComboBox, QTreeWidget {{
+        QPushButton:disabled {{
+            background-color: {disabled_bg};
+            color: {disabled_text};
+            border-color: {disabled_bg};
+        }}
+        QLineEdit, QComboBox {{
+            background-color: {input_bg};
+            color: {text_color};
             border: 1px solid {border_color};
-            border-radius: 1px;
-            padding: 3px;
+            border-radius: 8px;
+            padding: 6px 12px;
+        }}
+        QLineEdit:focus, QComboBox:focus {{
+            border: 2px solid {primary_color};
+            padding: 5px 11px;
+        }}
+        QComboBox::drop-down {{
+            border: none;
+            width: 24px;
+        }}
+        QTreeWidget, QListWidget, QTextEdit {{
+            background-color: {surface_color};
+            color: {text_color};
+            border: 1px solid {border_color};
+            border-radius: 12px;
+            padding: 8px;
+        }}
+        QTreeWidget::item, QListWidget::item {{
+            padding: 6px;
+            border-radius: 6px;
+            margin-bottom: 2px;
+        }}
+        QTreeWidget::item:hover, QListWidget::item:hover {{
+            background-color: {button_hover};
+        }}
+        QTreeWidget::item:selected, QListWidget::item:selected {{
+            background-color: {primary_container};
+            color: {on_primary_container};
+        }}
+        QHeaderView::section {{
+            background-color: {surface_color};
+            color: {text_color};
+            padding: 8px;
+            border: none;
+            border-bottom: 2px solid {border_color};
+            font-weight: bold;
+        }}
+        QTabWidget::pane {{
+            border: 1px solid {border_color};
+            border-radius: 12px;
+            background-color: {bg_color};
+            top: -1px;
+        }}
+        QTabBar::tab {{
+            background-color: transparent;
+            color: {text_variant};
+            padding: 8px 16px;
+            border-bottom: 2px solid transparent;
+            margin-right: 4px;
+            font-weight: 500;
+        }}
+        QTabBar::tab:hover {{
+            color: {primary_color};
+            background-color: {button_hover};
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+        }}
+        QTabBar::tab:selected {{
+            color: {primary_color};
+            border-bottom: 3px solid {primary_color};
+            font-weight: bold;
         }}
         QStatusBar {{
+            background-color: {surface_color};
             border-top: 1px solid {border_color};
+            color: {text_variant};
         }}
         QSplitter::handle {{
             background-color: {border_color};
+        }}
+        QSplitter::handle:horizontal {{
+            width: 4px;
+        }}
+        QSplitter::handle:vertical {{
+            height: 4px;
+        }}
+        QScrollBar:vertical {{
+            border: none;
+            background-color: transparent;
+            width: 10px;
+            margin: 0px;
+        }}
+        QScrollBar::handle:vertical {{
+            background-color: {border_color};
+            min-height: 20px;
+            border-radius: 5px;
+        }}
+        QScrollBar::handle:vertical:hover {{
+            background-color: {text_variant};
+        }}
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+            border: none;
+            background: none;
+        }}
+        QScrollBar:horizontal {{
+            border: none;
+            background-color: transparent;
+            height: 10px;
+            margin: 0px;
+        }}
+        QScrollBar::handle:horizontal {{
+            background-color: {border_color};
+            min-width: 20px;
+            border-radius: 5px;
+        }}
+        QScrollBar::handle:horizontal:hover {{
+            background-color: {text_variant};
+        }}
+        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+            border: none;
+            background: none;
         }}
     """
 
