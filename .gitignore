@@ -4,6 +4,7 @@ seasonal_cache.json
 qbt_editor.log
 .app_secret.key
 .app_secret.key.*.bak
+qbittorrent_rules.json
 
 # Python cache and test artifacts
 __pycache__/
