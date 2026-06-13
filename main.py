@@ -1,62 +1,22 @@
 #!/usr/bin/env python
 """
-Torrent RSS Rule Editor - Main Entry Point (Modular Version)
+Torrent RSS Rule Editor - Main Entry Point
 
 A desktop GUI for generating and synchronizing qBittorrent RSS rules.
-This is the new modular entry point that imports from the src package.
+Built with PySide6 (Qt).
 
 Usage:
     python main.py
 """
 import logging
-import os
 import sys
 
 logger = logging.getLogger(__name__)
 
 
-def _resolve_ui_mode(argv: list[str] | None = None) -> str:
-    """Resolve UI mode from CLI or environment.
-
-    Priority: CLI flag (--ui=...) then env var TRRE_UI, defaulting to qt.
-    """
-    args = list(argv if argv is not None else sys.argv[1:])
-    cli_mode = ''
-    for idx, arg in enumerate(args):
-        if arg.startswith('--ui='):
-            cli_mode = arg.split('=', 1)[1].strip().lower()
-            break
-        if arg == '--ui' and idx + 1 < len(args):
-            cli_mode = str(args[idx + 1]).strip().lower()
-            break
-
-    env_mode = str(os.getenv('TRRE_UI', '')).strip().lower()
-    mode = cli_mode or env_mode or 'qt'
-    if mode not in {'tk', 'qt'}:
-        return 'qt'
-    return mode
-
-
-def _run_tk_gui() -> None:
-    """Launch the legacy Tkinter fallback UI path."""
-    logger.warning("Launching legacy Tk fallback UI (--ui=tk).")
-    from src.gui import setup_gui, exit_handler
-
-    exit_handler()
-    setup_gui()
-
-
-def _run_qt_gui() -> None:
-    """Launch the default PySide6 UI path."""
-    from src.gui_qt import setup_gui_qt
-
-    setup_gui_qt()
-
-
-def main(argv: list[str] | None = None):
+def main():
     """Main entry point for the application."""
     log_level_str = 'INFO'
-    ui_mode = 'qt'
     try:
         # Import config first to get log level preference
         from src.config import config
@@ -72,35 +32,29 @@ def main(argv: list[str] | None = None):
         
         # Configure logging with preference
         logging.basicConfig(
-            filename='qbt_editor.log',
+            filename=getattr(config, 'LOG_FILE', 'data/qbt_editor.log'),
             level=log_level,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S',
             encoding='utf-8'
         )
 
-        logger.info("Starting Torrent RSS Rule Editor (Modular Version)")
+        logger.info("Starting Torrent RSS Rule Editor")
         logger.info(f"Log level: {log_level_str}")
-        logger.info("GUI Modularization: COMPLETE - 100% modular architecture")
 
-        ui_mode = _resolve_ui_mode(argv)
-        logger.info(f"UI mode: {ui_mode}")
-        if ui_mode == 'qt':
-            _run_qt_gui()
-        else:
-            _run_tk_gui()
+        from src.gui_qt import setup_gui_qt
+        setup_gui_qt()
         
     except ImportError as e:
         err_text = str(e)
         is_qt_import_error = ('PySide6' in err_text) or ('src.gui_qt' in err_text)
         print("=" * 60)
         if is_qt_import_error:
-            print("ERROR: Qt mode is unavailable")
+            print("ERROR: PySide6 is required but not installed")
             print("=" * 60)
             print(f"\nDetails: {e}")
-            print("\nPossible solutions:")
-            print("  1. Install optional Qt dependency: pip install PySide6")
-            print("  2. Or run the Tk fallback UI: python main.py --ui=tk")
+            print("\nSolution:")
+            print("  pip install PySide6")
             print()
         else:
             print("ERROR: Failed to import required modules")
@@ -125,3 +79,4 @@ def main(argv: list[str] | None = None):
 
 if __name__ == "__main__":
     main()
+

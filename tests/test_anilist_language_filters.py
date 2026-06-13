@@ -4,7 +4,7 @@ from typing import Optional
 
 from src.api import subsplease as subsplease_api
 from src.constants import AniListRefreshScope
-from src.gui.components.feed_lookup import build_feed_variation_state, evaluate_anilist_refresh
+from src.services.rule_editor import build_feed_variation_state, evaluate_anilist_refresh
 
 
 def test_build_feed_variation_state_filters_selected_languages():
@@ -161,9 +161,11 @@ def test_apply_title_variation_cache_retention_prunes_by_age(monkeypatch):
         }.get(key, default),
     )
 
+    from datetime import datetime, timedelta
+    now_dt = datetime.now()
     cache = {
-        "Old Title": {"aliases": [{"text": "Old", "lang": "english"}], "last_updated": "2026-03-20T00:00:00"},
-        "New Title": {"aliases": [{"text": "New", "lang": "english"}], "last_updated": "2026-06-01T00:00:00"},
+        "Old Title": {"aliases": [{"text": "Old", "lang": "english"}], "last_updated": (now_dt - timedelta(days=10)).isoformat()},
+        "New Title": {"aliases": [{"text": "New", "lang": "english"}], "last_updated": (now_dt - timedelta(days=2)).isoformat()},
     }
 
     pruned = subsplease_api.apply_title_variation_cache_retention(cache)
@@ -342,3 +344,73 @@ def test_build_feed_variation_state_supports_other_language_synonym_filter():
     aliases = state.get("aliases", [])
     assert "Atelier spiczastych kapeluszy" in aliases
     assert "Atelier of Witch Hat" not in aliases
+
+
+def test_apply_title_variation_cache_retention_exempts_active_rules(monkeypatch):
+    # Mock config.ALL_TITLES to contain active rules
+    monkeypatch.setattr(
+        subsplease_api.config,
+        "ALL_TITLES",
+        {
+            "anime": [
+                {
+                    "node": {"title": "Active Show"},
+                    "ruleName": "Active Show",
+                    "mustContain": "Active Show",
+                },
+                {
+                    "node": {"title": "Another Show"},
+                    "ruleName": "Another Show",
+                    "mustContain": "Alias Match Test",  # will match alias of "Alias Cache Entry"
+                }
+            ]
+        }
+    )
+
+    # Test age pruning exemption
+    monkeypatch.setattr(
+        subsplease_api.config,
+        "get_pref",
+        lambda key, default=None: {
+            subsplease_api.PrefKeys.ANILIST_TITLE_VARIATION_CACHE_RETENTION_MODE: "age",
+            subsplease_api.PrefKeys.ANILIST_TITLE_VARIATION_CACHE_TTL_DAYS: 7,
+        }.get(key, default),
+    )
+
+    cache = {
+        "Unused Old Title": {"aliases": [{"text": "Unused", "lang": "english"}], "last_updated": "2026-03-20T00:00:00"},
+        "Active Show": {"aliases": [{"text": "Active", "lang": "english"}], "last_updated": "2026-03-20T00:00:00"},
+        "Alias Cache Entry": {"aliases": [{"text": "Alias Match Test", "lang": "english"}], "last_updated": "2026-03-20T00:00:00"},
+    }
+
+    pruned = subsplease_api.apply_title_variation_cache_retention(cache)
+
+    assert "Unused Old Title" not in pruned
+    assert "Active Show" in pruned
+    assert "Alias Cache Entry" in pruned
+
+
+def test_fetch_anilist_title_aliases_with_suffix_fallback(monkeypatch):
+    searches = []
+    
+    def mock_execute_search(search_term):
+        searches.append(search_term)
+        if search_term == "Darwin Jihen 2nd Season":
+            return []
+        elif search_term == "Darwin Jihen":
+            return [
+                {"text": "Darwin's Incident", "lang": "english"},
+                {"text": "ダーウィン事変", "lang": "native"}
+            ]
+        return []
+
+    monkeypatch.setattr(subsplease_api, "_execute_anilist_search", mock_execute_search)
+    monkeypatch.setattr(subsplease_api, "requests", True)
+
+    aliases = subsplease_api._fetch_anilist_title_aliases("Darwin Jihen 2nd Season")
+
+    assert searches == ["Darwin Jihen 2nd Season", "Darwin Jihen"]
+    assert aliases == [
+        {"text": "Darwin's Incident 2nd Season", "lang": "english"},
+        {"text": "ダーウィン事変 2nd Season", "lang": "native"}
+    ]

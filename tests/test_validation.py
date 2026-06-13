@@ -64,6 +64,12 @@ class TestFilesystemValidation:
             assert name.upper() in ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'LPT1']
 class TestAutoSanitization:
     """Tests for automatic folder name sanitization."""
+
+    @pytest.fixture(autouse=True)
+    def set_windows_filesystem(self):
+        """Ensure filesystem type is set to Windows for sanitization tests."""
+        config.set_pref('filesystem_type', 'windows')
+        yield
     
     def test_sanitize_removes_colons(self):
         """Sanitization should remove colons."""
@@ -165,6 +171,7 @@ class TestValidationIntegration:
         assert fs_type == 'windows'
     def test_sanitization_with_path_components(self):
         """Sanitization should work with full paths."""
+        config.set_pref('filesystem_type', 'windows')
         path = "media/anime/web/Fall 2025/Mushoku no Eiyuu: Betsu ni Skill"
         components = path.split('/')
         

@@ -1,0 +1,40 @@
+{
+    "Spring 2026 - torrent-rss-rule-editor) PS Y__Code_T": {
+        "addPaused": false,
+        "affectedFeeds": [
+            "https://subsplease.org/rss/?r=1080"
+        ],
+        "assignedCategory": "Disk5 - Web",
+        "enabled": true,
+        "episodeFilter": "",
+        "ignoreDays": 0,
+        "lastMatch": null,
+        "mustContain": "torrent-rss-rule-editor) PS Y__Code_T",
+        "mustNotContain": "",
+        "previouslyMatchedEpisodes": [],
+        "priority": 0,
+        "savePath": "Spring 2026/torrent-rss-rule-editor) PS Y__Code_T",
+        "smartFilter": false,
+        "torrentContentLayout": null,
+        "torrentParams": {
+            "category": "Disk5 - Web",
+            "download_limit": -1,
+            "download_path": "",
+            "inactive_seeding_time_limit": -2,
+            "operating_mode": "AutoManaged",
+            "ratio_limit": -2,
+            "save_path": "Spring 2026/torrent-rss-rule-editor) PS Y__Code_T",
+            "seeding_time_limit": -2,
+            "share_limit_action": "Default",
+            "skip_checking": false,
+            "ssl_certificate": "",
+            "ssl_dh_params": "",
+            "ssl_private_key": "",
+            "stopped": false,
+            "tags": [],
+            "upload_limit": -1,
+            "use_auto_tmm": false
+        },
+        "useRegex": false
+    }
+}

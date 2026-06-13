@@ -35,7 +35,7 @@ def test_format_rule_sync_dry_run_text_contains_sections():
     )
 
     assert 'Rule Sync Dry Run' in text
-    assert 'Missing Rules:' in text
+    assert 'Missing Rules (not found in local library):' in text
     assert 'Planned Changes:' in text
 
 
@@ -74,3 +74,73 @@ def test_apply_rule_sync_plan_partial_failure(monkeypatch):
     assert result['failed_count'] == 1
     assert result['success'] is False
     assert 'Partial apply failure' in result['rollback_guidance']
+
+
+def test_build_rule_sync_dry_run_full_field_comparison():
+    all_titles = {
+        'anime': [
+            {
+                'ruleName': 'Rule Exist Unchanged',
+                'enabled': True,
+                'mustContain': 'Show A',
+                'node': {'title': 'Rule Exist Unchanged'},
+            },
+            {
+                'ruleName': 'Rule Exist Updated',
+                'enabled': True,
+                'mustContain': 'Show B Modified',
+                'node': {'title': 'Rule Exist Updated'},
+                'savePath': 'New Path',
+            },
+            {
+                'ruleName': 'Rule New',
+                'enabled': False,
+                'mustContain': 'Show C',
+                'node': {'title': 'Rule New'},
+            },
+        ]
+    }
+
+    server_rules = {
+        'Rule Exist Unchanged': {
+            'enabled': True,
+            'mustContain': 'Show A',
+        },
+        'Rule Exist Updated': {
+            'enabled': True,
+            'mustContain': 'Show B',
+            'savePath': 'Old Path',
+        },
+    }
+
+    selected_rule_names = ['Rule Exist Unchanged', 'Rule Exist Updated', 'Rule New']
+    rule_rows = [
+        {'rule_name': 'Rule Exist Unchanged'},
+        {'rule_name': 'Rule Exist Updated'},
+        {'rule_name': 'Rule New'},
+    ]
+
+    summary = rule_sync_apply.build_rule_sync_dry_run(
+        rule_rows=rule_rows,
+        selected_rule_names=selected_rule_names,
+        all_titles=all_titles,
+        server_rules=server_rules,
+    )
+
+    assert summary['selected_count'] == 3
+    assert summary['matched_count'] == 3
+    assert summary['unchanged_count'] == 1
+    assert summary['change_count'] == 2
+
+    changes = {c['rule_name']: c for c in summary['changes']}
+
+    # Rule New should be CREATE
+    assert 'Rule New' in changes
+    assert changes['Rule New']['action'] == 'create'
+    assert 'New rule' in changes['Rule New']['diff_details'][0]
+
+    # Rule Exist Updated should be UPDATE
+    assert 'Rule Exist Updated' in changes
+    assert changes['Rule Exist Updated']['action'] == 'update'
+    assert len(changes['Rule Exist Updated']['diff_details']) > 0
+

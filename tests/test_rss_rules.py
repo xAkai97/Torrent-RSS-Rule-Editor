@@ -1,4 +1,4 @@
-﻿"""
+"""
 RSS rules module tests.
 
 This script validates the RSS rules management functionality.
@@ -306,6 +306,10 @@ def test_rule_sanitization():
     print("="*60)
     
     try:
+        from src.config import config
+        old_fs = config.get_pref('filesystem_type')
+        config.set_pref('filesystem_type', 'windows')
+        
         from src.rss_rules import sanitize_rules
         
         rules = {
@@ -335,6 +339,11 @@ def test_rule_sanitization():
     except Exception as e:
         print(f"[FAIL] Sanitization failed: {e}")
         assert False, str(e)
+    finally:
+        try:
+            config.set_pref('filesystem_type', old_fs)
+        except Exception:
+            pass
 
 
 def main():

@@ -84,7 +84,7 @@ def test_run_qt_commit_rule_drafts_uses_service(monkeypatch):
 def test_run_qt_rule_sync_dry_run_uses_service(monkeypatch):
     expected = {'change_count': 1, 'missing_count': 0, 'changes': [{}]}
 
-    def _fake_dry_run(rule_rows, selected_rule_names):
+    def _fake_dry_run(rule_rows, selected_rule_names, **kwargs):
         assert isinstance(rule_rows, list)
         assert selected_rule_names == ['Rule A']
         return expected
@@ -256,19 +256,67 @@ def test_run_qt_save_runtime_settings_invalid_values_normalized():
     assert result['success'] is False
     assert result['message'] == 'Failed to save runtime settings.'
 
+
+def test_auto_theme_detection_and_resolution():
+    from src.gui_qt.main_window import get_host_machine_theme, get_effective_theme
+
+    host_theme = get_host_machine_theme()
+    assert host_theme in {'light', 'dark'}
+
+    assert get_effective_theme('light') == 'light'
+    assert get_effective_theme('dark') == 'dark'
+    assert get_effective_theme('auto') == host_theme
+    assert get_effective_theme('invalid_theme') == 'light'
+
+
+def test_run_qt_get_runtime_settings_supports_auto(monkeypatch):
+    monkeypatch.setattr('src.gui_qt.main_window.config.get_pref', lambda k, d=None: {
+        'theme': 'AUTO',
+        'log_level': 'warning',
+        'ui_style_theme': 'vista',
+    }.get(k, d))
+
+    settings = run_qt_get_runtime_settings()
+
+    assert settings['theme'] == 'auto'
+    assert settings['log_level'] == 'WARNING'
+    assert settings['ui_style_theme'] == 'vista'
+
+
+def test_run_qt_save_runtime_settings_supports_auto(monkeypatch):
+    captured = []
+
+    def _fake_set_pref(key, value):
+        captured.append((key, value))
+        return True
+
+    result = run_qt_save_runtime_settings(
+        {
+            'theme': 'auto',
+            'log_level': 'debug',
+            'ui_style_theme': 'clam',
+        },
+        set_pref_fn=_fake_set_pref,
+    )
+
+    assert result['success'] is True
+    assert result['message'] == 'Runtime settings saved.'
+    assert ('theme', 'auto') in captured
+
+
 def test_run_qt_get_platform_settings_reads_and_normalizes(monkeypatch):
-    monkeypatch.setattr('src.gui_qt.main_window.config.SUPPORTED_SERVERS', ['qbittorrent', 'autobrr'])
+    monkeypatch.setattr('src.gui_qt.main_window.config.SUPPORTED_SERVERS', ['qbittorrent'])
     monkeypatch.setattr('src.gui_qt.main_window.config.MAIN_SERVER', 'BAD')
-    monkeypatch.setattr('src.gui_qt.main_window.config.EXPORT_TARGETS', ['autobrr', 'invalid'])
+    monkeypatch.setattr('src.gui_qt.main_window.config.EXPORT_TARGETS', ['qbittorrent', 'invalid'])
 
     result = run_qt_get_platform_settings()
 
     assert result['main_server'] == 'qbittorrent'
-    assert result['export_targets'] == ['autobrr']
-    assert result['supported_servers'] == ['qbittorrent', 'autobrr']
+    assert result['export_targets'] == ['qbittorrent']
+    assert result['supported_servers'] == ['qbittorrent']
 
 def test_run_qt_save_platform_settings_success(monkeypatch):
-    monkeypatch.setattr('src.gui_qt.main_window.config.SUPPORTED_SERVERS', ['qbittorrent', 'autobrr'])
+    monkeypatch.setattr('src.gui_qt.main_window.config.SUPPORTED_SERVERS', ['qbittorrent'])
     captured = {}
 
     def _fake_save(main_server, export_targets):
@@ -278,19 +326,19 @@ def test_run_qt_save_platform_settings_success(monkeypatch):
 
     result = run_qt_save_platform_settings(
         {
-            'main_server': 'autobrr',
-            'export_targets': ['autobrr', 'qbittorrent', 'invalid'],
+            'main_server': 'qbittorrent',
+            'export_targets': ['qbittorrent', 'invalid'],
         },
         save_platform_config_fn=_fake_save,
     )
 
     assert result['success'] is True
     assert result['message'] == 'Platform settings saved.'
-    assert captured['main_server'] == 'autobrr'
-    assert captured['export_targets'] == ['autobrr', 'qbittorrent']
+    assert captured['main_server'] == 'qbittorrent'
+    assert captured['export_targets'] == ['qbittorrent']
 
 def test_run_qt_save_platform_settings_defaults_when_empty(monkeypatch):
-    monkeypatch.setattr('src.gui_qt.main_window.config.SUPPORTED_SERVERS', ['qbittorrent', 'autobrr'])
+    monkeypatch.setattr('src.gui_qt.main_window.config.SUPPORTED_SERVERS', ['qbittorrent'])
     captured = {}
 
     def _fake_save(main_server, export_targets):

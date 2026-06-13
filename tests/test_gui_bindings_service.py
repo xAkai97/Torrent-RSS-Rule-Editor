@@ -50,7 +50,7 @@ def test_build_keyboard_shortcut_actions_maps_expected_keys():
         export_selected_titles_fn=export_selected_fn,
         export_all_titles_fn=export_all_fn,
         clear_all_titles_fn=clear_fn,
-        refresh_treeview_display_fn=refresh_fn,
+        refresh_library_display_fn=refresh_fn,
         focus_search_fn=focus_search_fn,
     )
 

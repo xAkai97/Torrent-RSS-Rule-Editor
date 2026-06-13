@@ -19,48 +19,6 @@ from src.cache import (
     save_cached_feeds
 )
 
-@pytest.fixture
-def temp_config_env(tmp_path):
-    """Fixture to redirect AppConfig's paths to a temp directory."""
-    from src.config import config
-    
-    # Store original values
-    orig_config_file = config.CONFIG_FILE
-    orig_secret_key_file = config.SECRET_KEY_FILE
-    orig_cache_file = config.CACHE_FILE
-    orig_all_titles = config.ALL_TITLES
-    
-    # Override with temp paths
-    config.CONFIG_FILE = str(tmp_path / "config.ini")
-    config.SECRET_KEY_FILE = ".app_secret.key"
-    config.CACHE_FILE = str(tmp_path / "cache.json")
-    config.ALL_TITLES = {}
-    
-    # Ensure fresh start
-    if os.path.exists(config.CONFIG_FILE):
-        os.remove(config.CONFIG_FILE)
-    key_path = config._secret_key_path()
-    if os.path.exists(key_path):
-        os.remove(key_path)
-    if os.path.exists(config.CACHE_FILE):
-        os.remove(config.CACHE_FILE)
-        
-    yield config
-    
-    # Cleanup any leftovers
-    if os.path.exists(config.CONFIG_FILE):
-        os.remove(config.CONFIG_FILE)
-    if os.path.exists(key_path):
-        os.remove(key_path)
-    if os.path.exists(config.CACHE_FILE):
-        os.remove(config.CACHE_FILE)
-        
-    # Restore original values
-    config.CONFIG_FILE = orig_config_file
-    config.SECRET_KEY_FILE = orig_secret_key_file
-    config.CACHE_FILE = orig_cache_file
-    config.ALL_TITLES = orig_all_titles
-
 
 def test_config_bootstrap_and_load_save(temp_config_env):
     config = temp_config_env
@@ -132,7 +90,10 @@ def test_credential_encryption(temp_config_env):
     cfg.read(config.CONFIG_FILE)
     assert "CONNECTION_PROFILES" in cfg
     raw_profiles = cfg["CONNECTION_PROFILES"].get("profiles_json")
-    assert "pass1" not in raw_profiles  # shouldn't be plaintext
+    if config.is_secret_encryption_available():
+        assert "pass1" not in raw_profiles  # shouldn't be plaintext
+    else:
+        assert "pass1" in raw_profiles  # will be plaintext since encryption is not available
     
     # Load back using AppConfig API and check decrypted password
     loaded_profiles = config.load_connection_profiles()
@@ -233,6 +194,8 @@ def test_template_management(temp_config_env):
 
 
 def test_cached_categories_and_feeds(temp_config_env):
+    config = temp_config_env
+
     # Initial load
     assert load_cached_categories() == {}
     assert load_cached_feeds() == {}
@@ -252,3 +215,23 @@ def test_cached_categories_and_feeds(temp_config_env):
     }
     assert save_cached_feeds(feeds)
     assert load_cached_feeds() == feeds
+
+    # 3. Test direct AppConfig methods
+    assert config.CACHED_CATEGORIES == {}
+    assert config.CACHED_FEEDS == {}
+
+    assert config.save_cached_categories({"test-cat": {"savePath": "/cat"}})
+    assert config.CACHED_CATEGORIES == {"test-cat": {"savePath": "/cat"}}
+
+    # Clear in-memory to force reload from cache data
+    config.CACHED_CATEGORIES = {}
+    config.load_cached_categories()
+    assert config.CACHED_CATEGORIES == {"test-cat": {"savePath": "/cat"}}
+
+    assert config.save_cached_feeds({"test-feed": {"url": "http://test.feed"}})
+    assert config.CACHED_FEEDS == {"test-feed": {"url": "http://test.feed"}}
+
+    config.CACHED_FEEDS = {}
+    config.load_cached_feeds()
+    assert config.CACHED_FEEDS == {"test-feed": {"url": "http://test.feed"}}
+

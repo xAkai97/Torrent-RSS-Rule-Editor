@@ -19,7 +19,11 @@ The app now uses PySide6 as the default UI and keeps Tkinter available as a lega
 - First launch opens a Setup Wizard when config.ini is missing, and Setup Wizard can be reopened from Settings menu.
 - Validate and sanitize folder names using filesystem-aware rules.
 - Manage backups and restores of qBittorrent rule state.
+- Audit schedule and title variation caches in a tabbed, searchable tree/table viewer dialog.
+- Responsive, lag-free UI with non-blocking background workers (`QThread`) for connection testing, rule syncing, and API cache refreshes.
+- Sleek, compact top button bar with standard platform icons, flat Material-3-style vertical separator, status chips in the bottom statusbar, and descriptive tooltips across all controls.
 - Use modern Qt setup/configuration dialogs including Setup Wizard, log viewer, bulk edit, and template manager.
+- Fetch, parse, and queue torrent/magnet releases from SubsPlease using the **Multi Batch Downloader** dialog.
 
 ## Quick Start
 
@@ -75,35 +79,18 @@ src/
         __init__.py
         qbittorrent.py
         subsplease.py
+        rss_fetcher.py
     services/
         __init__.py
         backup.py
         rules.py
-    gui/
-        __init__.py
-        app_state.py
-        backup_restore.py
-        dialogs.py
+        batch_downloader.py
         file_operations.py
-        main_window.py
-        treeview_adapter.py
-        widgets.py
-        helpers/
-            __init__.py
-            constants.py
-            debounce.py
-            parsers.py
-            theme.py
-            variables.py
-        components/
-            __init__.py
-            editor_apply.py
-            editor_persistence.py
-            feed_lookup.py
-            lastmatch.py
+        language_detection.py
     gui_qt/
         __init__.py
         main_window.py
+        batch_downloader_dialog.py
 ```
 
 ## Server/Target Support in Current Code

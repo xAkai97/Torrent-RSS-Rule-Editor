@@ -1,6 +1,6 @@
-"""Unit tests for GUI language detection heuristics."""
+"""Unit tests for language detection heuristics."""
 
-from src.gui.helpers.language_detection import is_other_language_synonym
+from src.services.language_detection import is_other_language_synonym
 
 
 def test_detects_non_ascii_as_other_language():

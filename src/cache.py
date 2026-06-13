@@ -1,6 +1,24 @@
 """
-Cache management for storing and retrieving application data.
+Cache Management Module.
+
+This module provides a convenient API for storing and retrieving application
+data that needs to persist between app launches but isn't part of the user's
+primary configuration. Think of it as a key-value store backed by a JSON file.
+
+What gets cached (and why):
+  - Recent files       → quick access to previously opened rule files
+  - Categories         → qBittorrent categories (avoids re-fetching from server each time)
+  - RSS feeds          → qBittorrent RSS feed URLs (same reason)
+  - Rule templates     → user-saved and built-in rule presets
+  - User preferences   → UI settings like time format, font, theme
+
+Architecture note:
+  This module is a thin wrapper around config.py's low-level cache I/O.
+  It adds domain-specific methods (load_recent_files, save_cached_categories, etc.)
+  so the rest of the app doesn't need to know about cache keys or file formats.
+  The actual file I/O (reading/writing cache.json) is handled by config.py.
 """
+
 # Standard library imports
 import logging
 from typing import Any, Dict, List
@@ -12,12 +30,20 @@ from .constants import CacheKeys
 logger = logging.getLogger(__name__)
 
 
+# ============================================================================
+# Low-level cache operations
+#
+# These are internal helpers that read/write the entire cache file.
+# Higher-level functions below use these to access specific cache sections.
+# ============================================================================
+
 def _load_cache_data() -> Dict[str, Any]:
     """
-    Loads cache data from the cache file.
-    
+    Load the entire cache file from disk.
+
     Returns:
-        Dict containing all cached data, or empty dict if file doesn't exist
+        A dictionary containing all cached data sections, or an empty dict
+        if the cache file doesn't exist or can't be read.
     """
     try:
         data = config._load_cache_data()
@@ -30,13 +56,16 @@ def _load_cache_data() -> Dict[str, Any]:
 
 def _save_cache_data(data: Dict[str, Any]) -> bool:
     """
-    Saves cache data to the cache file.
-    
+    Write the entire cache dictionary back to disk.
+
+    This overwrites the entire cache file, so callers should load the
+    existing data first, modify it, then save the whole thing back.
+
     Args:
-        data: Dictionary containing all cache data
-    
+        data: The complete cache dictionary to write.
+
     Returns:
-        bool: True if successful
+        True if the save was successful, False otherwise.
     """
     try:
         success = bool(config._save_cache_data(data))
@@ -50,26 +79,34 @@ def _save_cache_data(data: Dict[str, Any]) -> bool:
 
 def _update_cache_key(key: str, value: Any) -> bool:
     """
-    Updates a specific key in the cache file.
-    
+    Update a single section of the cache without touching other sections.
+
+    This is a convenience method that loads the full cache, updates one key,
+    and saves everything back. It's the most common pattern used by the
+    higher-level save functions below.
+
     Args:
-        key: Cache key to update
-        value: New value for the key
-    
+        key: The cache section key (use CacheKeys constants).
+        value: The new value to store under that key.
+
     Returns:
-        bool: True if successful
+        True if the update was successful, False otherwise.
     """
     data = _load_cache_data()
     data[key] = value
     return _save_cache_data(data)
 
 
+# ============================================================================
+# Recent Files — tracks which rule files the user has opened recently
+# ============================================================================
+
 def load_recent_files() -> List[str]:
     """
-    Loads the list of recently opened files from cache.
-    
+    Get the list of recently opened file paths.
+
     Returns:
-        List of file paths
+        A list of file path strings, most recent first.
     """
     data = _load_cache_data()
     files = data.get(CacheKeys.RECENT_FILES, [])
@@ -77,81 +114,15 @@ def load_recent_files() -> List[str]:
     return files
 
 
-def load_cached_categories() -> Dict[str, Any]:
-    """
-    Loads cached qBittorrent categories.
-    
-    Returns:
-        Dict of categories
-    """
-    data = _load_cache_data()
-    categories = data.get(CacheKeys.CATEGORIES, {})
-    logger.info(f"Loaded {len(categories)} cached categories")
-    return categories
-
-
-def load_cached_feeds() -> Dict[str, Any]:
-    """
-    Loads cached RSS feeds.
-    
-    Returns:
-        Dict of feeds
-    """
-    data = _load_cache_data()
-    feeds = data.get(CacheKeys.FEEDS, {})
-    logger.info(f"Loaded {len(feeds)} cached feeds")
-    return feeds
-
-
-def save_cached_feeds(feeds: Dict[str, Any]) -> bool:
-    """
-    Saves RSS feeds to cache.
-    
-    Args:
-        feeds: Dictionary of feeds to cache
-    
-    Returns:
-        bool: True if successful
-    """
-    try:
-        success = _update_cache_key(CacheKeys.FEEDS, feeds)
-        if success:
-            logger.info(f"Saved {len(feeds)} feeds to cache")
-        return success
-    except Exception as e:
-        logger.error(f"Failed to save cached feeds: {e}")
-        return False
-
-
-def save_cached_categories(categories: Dict[str, Any]) -> bool:
-    """
-    Saves categories to cache.
-    
-    Args:
-        categories: Dictionary of categories to cache
-    
-    Returns:
-        bool: True if successful
-    """
-    try:
-        success = _update_cache_key(CacheKeys.CATEGORIES, categories)
-        if success:
-            logger.info(f"Saved {len(categories)} categories to cache")
-        return success
-    except Exception as e:
-        logger.error(f"Failed to save cached categories: {e}")
-        return False
-
-
 def save_recent_files(files: List[str]) -> bool:
     """
-    Saves recent files list to cache.
-    
+    Save the recent files list to cache.
+
     Args:
-        files: List of file paths
-    
+        files: List of file path strings to save.
+
     Returns:
-        bool: True if successful
+        True if successful.
     """
     try:
         success = _update_cache_key(CacheKeys.RECENT_FILES, files)
@@ -163,12 +134,145 @@ def save_recent_files(files: List[str]) -> bool:
         return False
 
 
+def add_recent_file(path: str, limit: int = 10) -> bool:
+    """
+    Add a file to the top of the recent files list.
+
+    If the file is already in the list, it gets moved to the top (most recent).
+    The list is capped at `limit` entries to prevent it from growing forever.
+
+    Args:
+        path: The file path to add.
+        limit: Maximum number of recent files to remember (default: 10).
+
+    Returns:
+        True if successful.
+    """
+    try:
+        files = load_recent_files()
+        # If already in the list, remove it first so it moves to the top
+        if path in files:
+            files.remove(path)
+        # Insert at the beginning (most recent position)
+        files.insert(0, path)
+        # Trim to the limit
+        files = files[:limit]
+        return save_recent_files(files)
+    except Exception as e:
+        logger.error(f"Failed to add recent file: {e}")
+        return False
+
+
+def clear_recent_files() -> bool:
+    """
+    Clear the entire recent files list.
+
+    Returns:
+        True if successful.
+    """
+    try:
+        return save_recent_files([])
+    except Exception as e:
+        logger.error(f"Failed to clear recent files: {e}")
+        return False
+
+
+# ============================================================================
+# Categories — cached copy of qBittorrent's torrent categories
+#
+# Categories are cached so the GUI can populate category dropdowns instantly
+# without needing to connect to the qBittorrent server on every app launch.
+# ============================================================================
+
+def load_cached_categories() -> Dict[str, Any]:
+    """
+    Load the cached qBittorrent categories.
+
+    Returns:
+        A dictionary mapping category names to their settings.
+    """
+    data = _load_cache_data()
+    categories = data.get(CacheKeys.CATEGORIES, {})
+    logger.info(f"Loaded {len(categories)} cached categories")
+    return categories
+
+
+def save_cached_categories(categories: Dict[str, Any]) -> bool:
+    """
+    Save qBittorrent categories to the cache.
+
+    Typically called after fetching fresh categories from the qBittorrent server.
+
+    Args:
+        categories: Dictionary of category names to their settings.
+
+    Returns:
+        True if successful.
+    """
+    try:
+        success = _update_cache_key(CacheKeys.CATEGORIES, categories)
+        if success:
+            logger.info(f"Saved {len(categories)} categories to cache")
+        return success
+    except Exception as e:
+        logger.error(f"Failed to save cached categories: {e}")
+        return False
+
+
+# ============================================================================
+# RSS Feeds — cached copy of qBittorrent's RSS feed list
+#
+# Same idea as categories — cached for instant GUI population.
+# ============================================================================
+
+def load_cached_feeds() -> Dict[str, Any]:
+    """
+    Load the cached RSS feeds.
+
+    Returns:
+        A dictionary of cached feed data.
+    """
+    data = _load_cache_data()
+    feeds = data.get(CacheKeys.FEEDS, {})
+    logger.info(f"Loaded {len(feeds)} cached feeds")
+    return feeds
+
+
+def save_cached_feeds(feeds: Dict[str, Any]) -> bool:
+    """
+    Save RSS feeds to the cache.
+
+    Typically called after fetching fresh feeds from the qBittorrent server.
+
+    Args:
+        feeds: Dictionary of feed data to cache.
+
+    Returns:
+        True if successful.
+    """
+    try:
+        success = _update_cache_key(CacheKeys.FEEDS, feeds)
+        if success:
+            logger.info(f"Saved {len(feeds)} feeds to cache")
+        return success
+    except Exception as e:
+        logger.error(f"Failed to save cached feeds: {e}")
+        return False
+
+
+# ============================================================================
+# User Preferences — settings like time format, theme, font, etc.
+#
+# Preferences are stored in config.ini (not cache.json) for easier manual
+# editing, but this module provides the access API for consistency.
+# ============================================================================
+
 def load_prefs() -> Dict[str, Any]:
     """
-    Loads user preferences from cache.
-    
+    Load all user preferences from the config.ini file.
+
     Returns:
-        Dict of preferences
+        A dictionary of all user preferences.
     """
     try:
         prefs = config._load_ini_prefs()
@@ -181,13 +285,13 @@ def load_prefs() -> Dict[str, Any]:
 
 def save_prefs(prefs: Dict[str, Any]) -> bool:
     """
-    Saves user preferences to cache.
-    
+    Save all user preferences to the config.ini file.
+
     Args:
-        prefs: Dictionary of preferences
-    
+        prefs: Dictionary of all preferences to save.
+
     Returns:
-        bool: True if successful
+        True if successful.
     """
     try:
         success = config._save_ini_prefs(prefs)
@@ -201,14 +305,14 @@ def save_prefs(prefs: Dict[str, Any]) -> bool:
 
 def get_pref(key: str, default: Any = None) -> Any:
     """
-    Gets a single preference value.
-    
+    Read a single user preference value.
+
     Args:
-        key: Preference key
-        default: Default value if key doesn't exist
-    
+        key: The preference key (use PrefKeys constants).
+        default: Value to return if the key doesn't exist.
+
     Returns:
-        The preference value or default
+        The stored preference value, or the default if not found.
     """
     try:
         return config.get_pref(key, default)
@@ -219,14 +323,14 @@ def get_pref(key: str, default: Any = None) -> Any:
 
 def set_pref(key: str, value: Any) -> bool:
     """
-    Sets a single preference value.
-    
+    Write a single user preference value.
+
     Args:
-        key: Preference key
-        value: Value to set
-    
+        key: The preference key (use PrefKeys constants).
+        value: The value to store.
+
     Returns:
-        bool: True if successful
+        True if successful.
     """
     try:
         return config.set_pref(key, value)
@@ -235,51 +339,20 @@ def set_pref(key: str, value: Any) -> bool:
         return False
 
 
-def add_recent_file(path: str, limit: int = 10) -> bool:
-    """
-    Adds a file to the recent files list.
-    
-    Args:
-        path: File path to add
-        limit: Maximum number of recent files to keep
-    
-    Returns:
-        bool: True if successful
-    """
-    try:
-        files = load_recent_files()
-        if path in files:
-            files.remove(path)
-        files.insert(0, path)
-        files = files[:limit]
-        return save_recent_files(files)
-    except Exception as e:
-        logger.error(f"Failed to add recent file: {e}")
-        return False
-
-
-def clear_recent_files() -> bool:
-    """
-    Clears the recent files list.
-    
-    Returns:
-        bool: True if successful
-    """
-    try:
-        return save_recent_files([])
-    except Exception as e:
-        logger.error(f"Failed to clear recent files: {e}")
-        return False
-
-
-# ==================== Template Management ====================
+# ============================================================================
+# Rule Templates — saved presets for quickly creating new rules
+#
+# Templates let users save their preferred rule settings (resolution filter,
+# category, exclusion patterns, etc.) and reuse them when creating new rules.
+# A set of built-in defaults is also provided for first-time users.
+# ============================================================================
 
 def load_templates() -> Dict[str, Dict[str, Any]]:
     """
-    Loads saved rule templates from cache.
-    
+    Load all saved rule templates from the cache.
+
     Returns:
-        Dict mapping template names to template configurations
+        A dictionary mapping template names to their configuration dicts.
     """
     data = _load_cache_data()
     templates = data.get(CacheKeys.TEMPLATES, {})
@@ -289,13 +362,13 @@ def load_templates() -> Dict[str, Dict[str, Any]]:
 
 def save_templates(templates: Dict[str, Dict[str, Any]]) -> bool:
     """
-    Saves rule templates to cache.
-    
+    Save rule templates to the cache.
+
     Args:
-        templates: Dict mapping template names to configurations
-    
+        templates: Dictionary mapping template names to configurations.
+
     Returns:
-        bool: True if successful
+        True if successful.
     """
     try:
         logger.info(f"Saving {len(templates)} templates")
@@ -307,14 +380,16 @@ def save_templates(templates: Dict[str, Dict[str, Any]]) -> bool:
 
 def add_template(name: str, template: Dict[str, Any]) -> bool:
     """
-    Adds or updates a template.
-    
+    Add or update a single rule template.
+
+    If a template with the same name already exists, it will be overwritten.
+
     Args:
-        name: Template name
-        template: Template configuration dict
-    
+        name: Display name for the template.
+        template: The template configuration dictionary.
+
     Returns:
-        bool: True if successful
+        True if successful.
     """
     try:
         templates = load_templates()
@@ -327,20 +402,20 @@ def add_template(name: str, template: Dict[str, Any]) -> bool:
 
 def delete_template(name: str) -> bool:
     """
-    Deletes a template.
-    
+    Remove a rule template by name.
+
     Args:
-        name: Template name to delete
-    
+        name: Name of the template to delete.
+
     Returns:
-        bool: True if successful
+        True if the template was found and deleted, False otherwise.
     """
     try:
         templates = load_templates()
         if name in templates:
             del templates[name]
             return save_templates(templates)
-        return False
+        return False  # Template didn't exist
     except Exception as e:
         logger.error(f"Failed to delete template '{name}': {e}")
         return False
@@ -348,10 +423,13 @@ def delete_template(name: str) -> bool:
 
 def get_default_templates() -> Dict[str, Dict[str, Any]]:
     """
-    Returns a set of built-in default templates.
-    
+    Return the built-in default rule templates.
+
+    These are provided for first-time users who don't have any saved templates.
+    They cover common anime download scenarios with sensible default settings.
+
     Returns:
-        Dict of default templates
+        A dictionary of template name → template configuration.
     """
     return {
         '1080p Seasonal': {
@@ -367,7 +445,7 @@ def get_default_templates() -> Dict[str, Dict[str, Any]]:
         '720p Seasonal': {
             'description': 'Standard quality seasonal anime (720p)',
             'must_contain': '720p',
-            'must_not_contain': '1080p',
+            'must_not_contain': '1080p',    # Exclude 1080p to avoid duplicates
             'category': 'anime',
             'save_path': '',
             'enabled': True,
@@ -409,17 +487,20 @@ def get_default_templates() -> Dict[str, Dict[str, Any]]:
 
 def initialize_default_templates() -> bool:
     """
-    Initializes cache with default templates if none exist.
-    
+    Seed the cache with built-in default templates if none exist yet.
+
+    Called on first app launch to give new users some templates to start with.
+    Does nothing if the user already has saved templates.
+
     Returns:
-        bool: True if templates were initialized
+        True if defaults were written, False if templates already existed.
     """
     try:
         templates = load_templates()
         if not templates:
             logger.info("Initializing default templates")
             return save_templates(get_default_templates())
-        return False
+        return False  # Templates already exist — don't overwrite
     except Exception as e:
         logger.error(f"Failed to initialize default templates: {e}")
         return False

@@ -28,10 +28,8 @@ def test_canonical_api_modules_importable():
 
 
 def test_constants_modules_have_clear_ownership():
-    """App constants and GUI helper constants should both remain accessible."""
+    """App constants should remain accessible."""
     from src.constants import UIConfig, NetworkConfig
-    from src.gui.helpers.constants import UIConstants
 
     assert hasattr(UIConfig, 'DEFAULT_WINDOW_WIDTH')
     assert hasattr(NetworkConfig, 'DEFAULT_TIMEOUT')
-    assert hasattr(UIConstants, 'EDITOR_AUTO_APPLY_DEBOUNCE_MS')

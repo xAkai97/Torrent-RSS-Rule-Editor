@@ -72,3 +72,27 @@ def test_build_rule_editor_feed_state_uses_language_pref(monkeypatch):
     aliases = state.get("aliases", [])
     assert "Anime Native" in aliases
     assert "Anime English" not in aliases
+
+
+def test_run_anilist_refresh_strips_season_prefixes():
+    captured = {}
+
+    def _refresh(titles, **kwargs):
+        captured["titles"] = list(titles)
+        return True, 1, "ok"
+
+    rule_editor.run_anilist_refresh(
+        can_pull_anilist_cache=lambda: (True, 0),
+        load_subsplease_cache=lambda: {},
+        refresh_anilist_cache_with_limit=_refresh,
+        current_title="Spring 2026 - Anime Title",
+        current_must="Fall 2025 - Match Pattern",
+        selected_season="SUMMER",
+        selected_year="2026",
+        refresh_scope_override=AniListRefreshScope.TITLE_ONLY,
+    )
+
+    assert "Anime Title" in captured["titles"]
+    assert "Match Pattern" in captured["titles"]
+    assert not any("Spring" in t for t in captured["titles"])
+    assert not any("Fall" in t for t in captured["titles"])
