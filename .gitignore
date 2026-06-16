@@ -1,9 +1,10 @@
 # Local runtime/state (machine-specific, secrets, cache)
+data/
+.app_secret.key
+.app_secret.key.*.bak
 config.ini
 seasonal_cache.json
 qbt_editor.log
-.app_secret.key
-.app_secret.key.*.bak
 qbittorrent_rules.json
 
 # Python cache and test artifacts
@@ -36,4 +37,3 @@ Thumbs.db
 # Local agent configs
 AGENTS.local.md
 
-data/
