@@ -16,7 +16,7 @@ from src.gui_qt.main_window import (
 @pytest.fixture
 def temp_rules_file(tmp_path):
     """Fixture to set up a temporary file path for rules output and restore original settings."""
-    original_output_file = getattr(config, 'OUTPUT_CONFIG_FILE_NAME', 'qbittorrent_rules.json')
+    original_output_file = getattr(config, 'OUTPUT_CONFIG_FILE_NAME', os.path.join('data', 'qbittorrent_rules.json'))
     original_titles = getattr(config, 'ALL_TITLES', {})
     
     temp_file = tmp_path / "temp_rules.json"

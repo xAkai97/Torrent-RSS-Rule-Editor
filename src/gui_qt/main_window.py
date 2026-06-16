@@ -658,7 +658,7 @@ _auto_save_timer = None
 _auto_save_lock = threading.Lock()
 
 def auto_save_rules() -> None:
-    """Auto-save current rules to qbittorrent_rules.json in a background thread."""
+    """Auto-save current rules to data/qbittorrent_rules.json in a background thread."""
     global _auto_save_timer
     
     data = getattr(config, 'ALL_TITLES', None)
@@ -676,7 +676,7 @@ def auto_save_rules() -> None:
         with _auto_save_lock:
             try:
                 export_map = build_rules_from_titles(data_to_save)
-                file_path = getattr(config, 'OUTPUT_CONFIG_FILE_NAME', 'qbittorrent_rules.json')
+                file_path = getattr(config, 'OUTPUT_CONFIG_FILE_NAME', os.path.join('data', 'qbittorrent_rules.json'))
                 with open(file_path, 'w', encoding='utf-8') as fh:
                     json.dump(export_map, fh, indent=4, ensure_ascii=False)
                 logger.debug(f"Auto-save complete: saved {len(export_map)} rules to {file_path}")
@@ -1076,7 +1076,7 @@ def setup_gui_qt() -> None:
     if not hasattr(config, 'SERVER_RULES_SNAPSHOT') or not isinstance(config.SERVER_RULES_SNAPSHOT, dict):
         config.SERVER_RULES_SNAPSHOT = {}
 
-    rules_file = getattr(config, 'OUTPUT_CONFIG_FILE_NAME', 'qbittorrent_rules.json')
+    rules_file = getattr(config, 'OUTPUT_CONFIG_FILE_NAME', os.path.join('data', 'qbittorrent_rules.json'))
     if rules_file and os.path.exists(rules_file):
         try:
             with open(rules_file, 'r', encoding='utf-8') as fh:
@@ -1182,7 +1182,7 @@ def setup_gui_qt() -> None:
         pass
         
     def save_rules_synchronously() -> None:
-        """Force save current rules to qbittorrent_rules.json synchronously."""
+        """Force save current rules to data/qbittorrent_rules.json synchronously."""
         global _auto_save_timer
         with _auto_save_lock:
             if _auto_save_timer is not None:
@@ -1195,7 +1195,7 @@ def setup_gui_qt() -> None:
             
             try:
                 export_map = build_rules_from_titles(data)
-                file_path = getattr(config, 'OUTPUT_CONFIG_FILE_NAME', 'qbittorrent_rules.json')
+                file_path = getattr(config, 'OUTPUT_CONFIG_FILE_NAME', os.path.join('data', 'qbittorrent_rules.json'))
                 with open(file_path, 'w', encoding='utf-8') as fh:
                     json.dump(export_map, fh, indent=4, ensure_ascii=False)
                 logger.info("Synchronous save complete: saved %d rules to %s", len(export_map), file_path)

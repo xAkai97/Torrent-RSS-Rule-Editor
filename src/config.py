@@ -12,9 +12,10 @@ It manages:
 6. **Secret encryption** — password encryption at rest using Fernet symmetric keys
 
 Storage files:
-  - data/config.ini         → Connection settings, preferences, connection profiles
-  - data/cache.json         → Cached categories, feeds, recent files, templates
-  - data/.app_secret.key    → Fernet encryption key for password storage
+  - data/config.ini             → Connection settings, preferences, connection profiles
+  - data/cache.json             → Cached categories, feeds, recent files, templates
+  - data/.app_secret.key        → Fernet encryption key for password storage
+  - data/qbittorrent_rules.json → Auto-saved/exported rules config
 
 Architecture note:
   A single global `config` instance (AppConfig) is created at module load time
@@ -73,7 +74,7 @@ class AppConfig:
         # --- Legacy file migration ---
         # The app used to store config files in the project root directory.
         # On first run after update, move them into data/ for cleaner organization.
-        legacy_files = ['config.ini', '.app_secret.key', 'cache.json', 'seasonal_cache.json', 'qbt_editor.log']
+        legacy_files = ['config.ini', '.app_secret.key', 'cache.json', 'seasonal_cache.json', 'qbt_editor.log', 'qbittorrent_rules.json']
         for file in legacy_files:
             if os.path.exists(file):
                 try:
@@ -89,7 +90,7 @@ class AppConfig:
         # --- File paths ---
         self.CONFIG_FILE: str = os.path.join('data', 'config.ini')       # Main configuration file
         self.SECRET_KEY_FILE: str = '.app_secret.key'                     # Encryption key (relative to CONFIG_FILE's dir)
-        self.OUTPUT_CONFIG_FILE_NAME: str = 'qbittorrent_rules.json'      # Default export filename
+        self.OUTPUT_CONFIG_FILE_NAME: str = os.path.join('data', 'qbittorrent_rules.json')  # Default export filename
         self.CACHE_FILE: str = os.path.join('data', 'cache.json')         # Cache storage file
         self.LEGACY_CACHE_FILE: str = os.path.join('data', 'seasonal_cache.json')  # Old cache filename
         self.LOG_FILE: str = os.path.join('data', 'qbt_editor.log')       # Application log file
