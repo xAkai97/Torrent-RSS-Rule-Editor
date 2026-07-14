@@ -5,6 +5,17 @@ import pytest
 if 'QT_QPA_PLATFORM' not in os.environ:
     os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_cmdline_main(config):
+    """Early hook to disable pytest-qt if PySide6 is not installed to prevent initialization failure."""
+    try:
+        import PySide6
+    except ImportError:
+        for name, plugin in list(config.pluginmanager.list_name_plugin()):
+            if "qt" in name.lower() or (hasattr(plugin, "__name__") and "qt" in plugin.__name__.lower()):
+                config.pluginmanager.unregister(plugin=plugin, name=name)
+    return None
+
 @pytest.fixture(autouse=True)
 def temp_config_env(tmp_path):
     """Global autouse fixture to isolate AppConfig paths to a temp directory to protect user config files."""

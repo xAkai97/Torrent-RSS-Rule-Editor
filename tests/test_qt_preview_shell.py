@@ -1,29 +1,36 @@
 import pytest
-from src.gui_qt.main_window import (
-    run_qt_subsplease_refresh,
-    run_qt_anilist_refresh,
-    run_qt_qbittorrent_snapshot,
-    run_qt_connection_test,
-    run_qt_get_connection_settings,
-    run_qt_save_connection_settings,
-    run_qt_get_runtime_settings,
-    run_qt_save_runtime_settings,
-    run_qt_get_platform_settings,
-    run_qt_save_platform_settings,
-    run_qt_load_log_tail,
-    run_qt_clear_log_file,
-    run_qt_import_titles_from_text,
-    run_qt_import_titles_from_path,
-    run_qt_import_dropped_paths,
-    run_qt_clear_all_titles,
-    run_qt_export_all_titles_to_path,
-    run_qt_remove_titles_by_rule_names,
-    run_qt_export_selected_titles_to_path,
-    run_qt_commit_rule_drafts,
-    run_qt_rule_sync_dry_run,
-    run_qt_apply_rule_sync,
-)
+try:
+    from src.gui_qt.main_window import (
+        run_qt_subsplease_refresh,
+        run_qt_anilist_refresh,
+        run_qt_qbittorrent_snapshot,
+        run_qt_connection_test,
+        run_qt_get_connection_settings,
+        run_qt_save_connection_settings,
+        run_qt_get_runtime_settings,
+        run_qt_save_runtime_settings,
+        run_qt_get_platform_settings,
+        run_qt_save_platform_settings,
+        run_qt_load_log_tail,
+        run_qt_clear_log_file,
+        run_qt_import_titles_from_text,
+        run_qt_import_titles_from_path,
+        run_qt_import_dropped_paths,
+        run_qt_clear_all_titles,
+        run_qt_export_all_titles_to_path,
+        run_qt_remove_titles_by_rule_names,
+        run_qt_export_selected_titles_to_path,
+        run_qt_commit_rule_drafts,
+        run_qt_rule_sync_dry_run,
+        run_qt_apply_rule_sync,
+    )
+    pyside_available = True
+except ImportError:
+    pyside_available = False
+
 from src.constants import AniListRefreshScope
+
+pytestmark = pytest.mark.skipif(not pyside_available, reason="PySide6 is not installed")
 
 def test_run_qt_subsplease_refresh_uses_service_wrapper(monkeypatch):
     expected = {'fetch_status': 'ok', 'app_status': 'done', 'should_update_variations': True}

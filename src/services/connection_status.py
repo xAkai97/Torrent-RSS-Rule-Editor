@@ -12,10 +12,13 @@ tested independently and reused across different GUI implementations
 
 from __future__ import annotations
 
-from typing import Any, Tuple
+from typing import TYPE_CHECKING, Tuple
+
+if TYPE_CHECKING:
+    from src.config import AppConfig
 
 
-def get_connection_status_text(config_obj: Any) -> str:
+def get_connection_status_text(config_obj: AppConfig) -> str:
     """
     Build a human-readable status string for the current connection mode.
 
@@ -31,11 +34,11 @@ def get_connection_status_text(config_obj: Any) -> str:
     Returns:
         A display-ready status string.
     """
-    mode = str(getattr(config_obj, 'CONNECTION_MODE', '') or '').strip().lower()
+    mode = str(config_obj.CONNECTION_MODE or '').strip().lower()
     if mode == 'online':
         return (
-            f"Online: {getattr(config_obj, 'QBT_PROTOCOL', '')}://"
-            f"{getattr(config_obj, 'QBT_HOST', '')}:{getattr(config_obj, 'QBT_PORT', '')}"
+            f"Online: {config_obj.QBT_PROTOCOL}://"
+            f"{config_obj.QBT_HOST}:{config_obj.QBT_PORT}"
         )
     if mode == 'offline':
         return 'Offline'
@@ -44,7 +47,7 @@ def get_connection_status_text(config_obj: Any) -> str:
     return f"Mode: {mode or 'unknown'}"
 
 
-def evaluate_setup_wizard_trigger(config_set: bool, config_obj: Any, config_file_exists: bool) -> tuple[bool, str]:
+def evaluate_setup_wizard_trigger(config_set: bool, config_obj: AppConfig, config_file_exists: bool) -> tuple[bool, str]:
     """
     Decide whether the Setup Wizard should open automatically on launch.
 
@@ -62,7 +65,7 @@ def evaluate_setup_wizard_trigger(config_set: bool, config_obj: Any, config_file
     Returns:
         A tuple of (should_open_wizard: bool, status_message: str).
     """
-    first_run_bootstrap = bool(getattr(config_obj, 'BOOTSTRAPPED_CONFIG', False))
+    first_run_bootstrap = bool(config_obj.BOOTSTRAPPED_CONFIG)
     if first_run_bootstrap:
         return True, '🧭 First launch detected. Opening Setup Wizard...'
 
@@ -72,7 +75,7 @@ def evaluate_setup_wizard_trigger(config_set: bool, config_obj: Any, config_file
     return False, ''
 
 
-def build_qbittorrent_ping_args(config_obj: Any) -> Tuple[str, str, str, str, str, bool, Any]:
+def build_qbittorrent_ping_args(config_obj: AppConfig) -> Tuple[str, str, str, str, str, bool, str | None]:
     """
     Extract qBittorrent connection parameters from config into a tuple.
 
@@ -86,17 +89,17 @@ def build_qbittorrent_ping_args(config_obj: Any) -> Tuple[str, str, str, str, st
         A tuple of (protocol, host, port, username, password, verify_ssl, ca_cert).
     """
     return (
-        getattr(config_obj, 'QBT_PROTOCOL', ''),
-        getattr(config_obj, 'QBT_HOST', ''),
-        str(getattr(config_obj, 'QBT_PORT', '') or ''),
-        getattr(config_obj, 'QBT_USER', '') or '',
-        getattr(config_obj, 'QBT_PASS', '') or '',
-        bool(getattr(config_obj, 'QBT_VERIFY_SSL', True)),
-        getattr(config_obj, 'QBT_CA_CERT', None),
+        config_obj.QBT_PROTOCOL or '',
+        config_obj.QBT_HOST or '',
+        str(config_obj.QBT_PORT or '').strip(),
+        config_obj.QBT_USER or '',
+        config_obj.QBT_PASS or '',
+        bool(config_obj.QBT_VERIFY_SSL),
+        config_obj.QBT_CA_CERT,
     )
 
 
-def has_online_host_port(config_obj: Any) -> bool:
+def has_online_host_port(config_obj: AppConfig) -> bool:
     """
     Check if the config has non-empty host and port values.
 
@@ -109,8 +112,9 @@ def has_online_host_port(config_obj: Any) -> bool:
     Returns:
         True if both host and port are non-empty strings.
     """
-    host = getattr(config_obj, 'QBT_HOST', '') or ''
-    port = getattr(config_obj, 'QBT_PORT', '') or ''
-    host_text = str(host).strip() if isinstance(host, str) else str(host or '').strip()
-    port_text = str(port).strip() if port else ''
+    host = config_obj.QBT_HOST or ''
+    port = config_obj.QBT_PORT or ''
+    host_text = str(host).strip()
+    port_text = str(port).strip()
     return bool(host_text and port_text)
+

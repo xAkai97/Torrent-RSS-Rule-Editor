@@ -20,7 +20,10 @@ Main categories:
 
 # Standard library imports
 import logging
+import os
 import re
+import subprocess
+import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -924,9 +927,6 @@ def get_validation_profile_label(
 # APPLICATION LIFECYCLE
 # ============================================================================
 
-import sys
-import os
-import subprocess
 
 
 def restart_application() -> None:

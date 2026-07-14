@@ -90,6 +90,10 @@ class PrefKeys:
     ANILIST_DISPLAY_LANGUAGES = 'anilist_display_languages'             # Which title languages to show in the UI
     FONT_FAMILY = 'font_family'                                        # User-selected UI font family
     UI_STYLE_THEME = 'ui_style_theme'                                  # UI color theme name
+    DEFAULT_VAR_MATCH_CHECKED = 'default_var_match_checked'             # Apply variations to Match Pattern by default
+    DEFAULT_VAR_TITLE_CHECKED = 'default_var_title_checked'             # Apply variations to Title by default
+    DEFAULT_VAR_PATH_CHECKED = 'default_var_path_checked'               # Apply variations to Save Path by default
+    RULE_VAR_OPTIONS = 'rule_var_options'                               # Per-rule variation options mapping
 
 
 # ============================================================================

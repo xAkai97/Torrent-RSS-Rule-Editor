@@ -3,7 +3,11 @@ from src.api.subsplease import (
     find_subsplease_title_match,
     _normalize_title,
 )
-from src.gui_qt.main_window import run_qt_batch_apply_subsplease
+try:
+    from src.gui_qt.main_window import run_qt_batch_apply_subsplease
+    pyside_available = True
+except ImportError:
+    pyside_available = False
 from src.config import config
 
 
@@ -75,6 +79,7 @@ def test_find_subsplease_title_match_with_anilist_variations(monkeypatch):
     assert find_subsplease_title_match("Spring 2024 - My Hero Academia 7th Season") == "Boku no Hero Academia 7"
 
 
+@pytest.mark.skipif(not pyside_available, reason="PySide6 is not installed")
 def test_run_qt_batch_apply_subsplease(monkeypatch):
     """Verify that run_qt_batch_apply_subsplease updates multiple local rule dicts in bulk."""
     # Mock SubsPlease caches

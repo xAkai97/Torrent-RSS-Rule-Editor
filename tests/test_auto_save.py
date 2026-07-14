@@ -6,12 +6,19 @@ import json
 import time
 import pytest
 from src.config import config
-from src.gui_qt.main_window import (
-    auto_save_rules,
-    run_qt_clear_all_titles,
-    run_qt_remove_titles_by_rule_names,
-    run_qt_commit_rule_drafts,
-)
+
+try:
+    from src.gui_qt.main_window import (
+        auto_save_rules,
+        run_qt_clear_all_titles,
+        run_qt_remove_titles_by_rule_names,
+        run_qt_commit_rule_drafts,
+    )
+    pyside_available = True
+except ImportError:
+    pyside_available = False
+
+pytestmark = pytest.mark.skipif(not pyside_available, reason="PySide6 is not installed")
 
 @pytest.fixture
 def temp_rules_file(tmp_path):

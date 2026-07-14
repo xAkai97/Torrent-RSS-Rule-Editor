@@ -47,6 +47,7 @@ from src.gui_qt.workers import (
     SubsPleaseRefreshWorker,
 )
 from src.gui_qt.batch_downloader_dialog import BatchDownloaderDialog
+from src.gui_qt.nyaa_search_dialog import NyaaSearchDialog
 from src.gui_qt.theme import get_host_machine_theme, get_effective_theme, apply_app_theme as apply_app_theme_imported
 from src.services.connection_status import get_connection_status_text
 from src.services.file_operations import _import_titles_core, _snapshot_import_entries, collect_invalid_folder_titles, import_titles_from_text
@@ -76,7 +77,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_ACTION_BAR_ORDER = [
     "spacer_1", "import", "fetch_rules", "apply", "export", "clear_all", "validate", "separator_1", 
     "batch", "separator_2", "refresh", "refresh_library", "spacer_2", "separator_3", 
-    "undo", "enabled", "separator_4", "season_year", "separator_5", "theme", "settings", 
+    "undo", "separator_4", "season_year", "separator_5", "theme", "settings", 
     "spacer_3"
 ]
 
@@ -1258,6 +1259,15 @@ def setup_gui_qt() -> None:
             logger.error(f"Failed to open Batch Downloader: {e}", exc_info=True)
             QMessageBox.critical(window, "Error", f"Could not open Batch Downloader:\n{e}")
 
+    def _open_nyaa_custom_search() -> None:
+        """Open the Nyaa.si custom search addon window."""
+        try:
+            dialog = NyaaSearchDialog(parent=window)
+            dialog.exec()
+        except Exception as e:
+            logger.error(f"Failed to open Nyaa Custom Search: {e}", exc_info=True)
+            QMessageBox.critical(window, "Error", f"Could not open Nyaa Custom Search:\n{e}")
+
     qt_cache_viewer_ref = {'dialog': None}
 
     def _open_qt_cache_viewer() -> None:
@@ -1480,6 +1490,7 @@ def setup_gui_qt() -> None:
 
     tools_menu = menubar.addMenu('Tools')
     _add_menu_action(tools_menu, 'Multi Batch Downloader...', lambda: _open_batch_downloader(), 'Ctrl+M')
+    _add_menu_action(tools_menu, 'Nyaa Custom Search...', lambda: _open_nyaa_custom_search(), 'Ctrl+N')
 
     validate_menu = menubar.addMenu('Validate')
     _add_menu_action(validate_menu, 'Validate All Titles', lambda: _action_validate_all())
@@ -1591,11 +1602,6 @@ def setup_gui_qt() -> None:
     undo_btn.setEnabled(False)
     undo_btn.setToolTip('Undo the last edit made to the rule parameters (Ctrl+Z)')
     undo_btn.setIcon(QIcon(undo_path))
-
-    enabled_box = QCheckBox('Enabled')
-    enabled_box.setChecked(True)
-    enabled_box.setEnabled(False)
-    enabled_box.setToolTip('Enable or disable this specific RSS rule on the qBittorrent server')
 
     clear_all_bar_btn = QPushButton('Clear All')
     clear_all_bar_btn.setToolTip('Clear all loaded titles from the application (Ctrl+Shift+C)')
@@ -1809,7 +1815,6 @@ def setup_gui_qt() -> None:
         'batch': [batch_downloader_btn],
         'refresh': [refresh_btn],
         'undo': [undo_btn],
-        'enabled': [enabled_box],
         'clear_all': [clear_all_bar_btn],
         'validate': [validate_bar_btn],
         'trash': [trash_bar_btn],
@@ -2356,7 +2361,18 @@ def setup_gui_qt() -> None:
     splitter.addWidget(library_tree)
 
     editor_group = QGroupBox('Rule Editor')
-    editor_layout = QVBoxLayout(editor_group)
+    main_editor_layout = QVBoxLayout(editor_group)
+    main_editor_layout.setContentsMargins(4, 4, 4, 4)
+    
+    editor_scroll = QScrollArea()
+    editor_scroll.setWidgetResizable(True)
+    editor_scroll.setFrameShape(QFrame.NoFrame)
+    
+    scroll_content = QWidget()
+    editor_layout = QVBoxLayout(scroll_content)
+    editor_layout.setContentsMargins(0, 0, 4, 0)
+    editor_scroll.setWidget(scroll_content)
+    main_editor_layout.addWidget(editor_scroll)
 
     editor_layout.addWidget(QLabel('Title:'))
     title_row = QHBoxLayout()
@@ -2378,13 +2394,38 @@ def setup_gui_qt() -> None:
     apply_row = QHBoxLayout()
     var_match_box = QCheckBox('Match Pattern')
     var_match_box.setToolTip('When checked, clicking any title variation button below will update the Match Pattern field with that variation.')
-    var_match_box.setChecked(True)
+    var_match_box.setChecked(bool(config.get_pref('default_var_match_checked', True)))
     var_title_box = QCheckBox('Title')
     var_title_box.setToolTip('When checked, clicking any title variation button below will update the rule\'s Title field (preserving any season/year prefixes).')
-    var_title_box.setChecked(True)
+    var_title_box.setChecked(bool(config.get_pref('default_var_title_checked', False)))
     var_path_box = QCheckBox('Save Path')
     var_path_box.setToolTip('When checked, clicking any title variation button below will update the rule\'s Save Path folder name with that variation.')
-    var_path_box.setChecked(True)
+    var_path_box.setChecked(bool(config.get_pref('default_var_path_checked', False)))
+
+    def _on_variation_checkbox_changed():
+        """Handle per-rule title variation checkbox updates."""
+        selected = library_tree.selectedItems()
+        if not selected:
+            return
+        item = selected[0]
+        rule = get_rule_from_item(item)
+        if not isinstance(rule, dict):
+            return
+        rule_name = rule.get('node', {}).get('title') or rule.get('ruleName', '')
+        if not rule_name:
+            return
+        options = config.get_pref('rule_var_options', {}) or {}
+        options[rule_name] = {
+            'match': bool(var_match_box.isChecked()),
+            'title': bool(var_title_box.isChecked()),
+            'path': bool(var_path_box.isChecked())
+        }
+        config.set_pref('rule_var_options', options)
+
+    var_match_box.stateChanged.connect(lambda _: _on_variation_checkbox_changed())
+    var_title_box.stateChanged.connect(lambda _: _on_variation_checkbox_changed())
+    var_path_box.stateChanged.connect(lambda _: _on_variation_checkbox_changed())
+
     apply_row.addWidget(var_match_box)
     apply_row.addWidget(var_title_box)
     apply_row.addWidget(var_path_box)
@@ -2501,7 +2542,6 @@ def setup_gui_qt() -> None:
             row_layout.setSpacing(6)
 
             btn = QPushButton(str(sp_title))
-            btn.setStyleSheet("text-align: left; padding: 4px 8px; font-weight: normal;")
             btn.clicked.connect(lambda _, val=sp_title: _apply_variation(val))
             row_layout.addWidget(btn, 1)
 
@@ -2514,9 +2554,12 @@ def setup_gui_qt() -> None:
                 matches.append("Save Path")
 
             if matches:
+                btn.setStyleSheet("text-align: left; padding: 4px 8px; color: #2e7d32; font-weight: bold;")
                 lbl_match = QLabel(f"✓ Matches: {', '.join(matches)}")
                 lbl_match.setStyleSheet("color: #2e7d32; font-weight: 600; font-size: 11px;")
                 row_layout.addWidget(lbl_match)
+            else:
+                btn.setStyleSheet("text-align: left; padding: 4px 8px; color: #ca8a04; font-weight: normal;")
 
             subsplease_content_layout.addWidget(row_widget)
         else:
@@ -2535,7 +2578,6 @@ def setup_gui_qt() -> None:
                 row_layout.setSpacing(6)
 
                 btn = QPushButton(str(display_text))
-                btn.setStyleSheet("text-align: left; padding: 4px 8px; font-weight: normal;")
                 btn.clicked.connect(lambda _, val=alias: _apply_variation(val))
                 row_layout.addWidget(btn, 1)
 
@@ -2548,9 +2590,12 @@ def setup_gui_qt() -> None:
                     matches.append("Save Path")
 
                 if matches:
+                    btn.setStyleSheet("text-align: left; padding: 4px 8px; color: #2e7d32; font-weight: bold;")
                     lbl_match = QLabel(f"✓ Matches: {', '.join(matches)}")
                     lbl_match.setStyleSheet("color: #2e7d32; font-weight: 600; font-size: 11px;")
                     row_layout.addWidget(lbl_match)
+                else:
+                    btn.setStyleSheet("text-align: left; padding: 4px 8px; color: #ca8a04; font-weight: normal;")
 
                 anilist_content_layout.addWidget(row_widget)
         else:
@@ -2581,9 +2626,17 @@ def setup_gui_qt() -> None:
         pass
     editor_layout.addWidget(category_combo)
     editor_layout.addWidget(QLabel('Affected Feeds:'))
-    affected_feeds_edit = QLineEdit()
-    affected_feeds_edit.setToolTip('Comma-separated list of feed URLs this rule applies to')
-    editor_layout.addWidget(affected_feeds_edit)
+    affected_feeds_combo = QComboBox()
+    affected_feeds_combo.setEditable(True)
+    affected_feeds_combo.setMaxVisibleItems(20)
+    affected_feeds_combo.setToolTip('Select from active RSS feeds or type custom feed URLs/names')
+    try:
+        cached_feeds = getattr(config, 'CACHED_FEEDS', {}) or {}
+        if isinstance(cached_feeds, dict):
+            affected_feeds_combo.addItems(sorted(str(k) for k in cached_feeds.keys()))
+    except Exception:
+        pass
+    editor_layout.addWidget(affected_feeds_combo)
 
     advanced_btn = QPushButton('Advanced Settings...')
     advanced_btn.setToolTip('Open the Advanced Settings editor for additional qBittorrent rule override parameters')
@@ -2754,14 +2807,13 @@ def setup_gui_qt() -> None:
         new_title = title_edit.text().strip()
 
         current_feeds = rule.get('affectedFeeds', []) or []
-        new_feeds = [f.strip() for f in affected_feeds_edit.text().split(',') if f.strip()]
+        new_feeds = [f.strip() for f in affected_feeds_combo.currentText().split(',') if f.strip()]
 
         has_changes = (
             current_node_title != new_title or
             rule.get('mustContain', '') != must_edit.text().strip() or
             rule.get('savePath', '') != save_path_edit.text().strip() or
             rule.get('assignedCategory', '') != category_combo.currentText().strip() or
-            bool(rule.get('enabled', False)) != bool(enabled_box.isChecked()) or
             current_feeds != new_feeds
         )
         if not has_changes:
@@ -2783,7 +2835,6 @@ def setup_gui_qt() -> None:
         rule['savePath'] = save_path_edit.text().strip()
         rule['assignedCategory'] = category_combo.currentText().strip()
         rule['affectedFeeds'] = new_feeds
-        rule['enabled'] = bool(enabled_box.isChecked())
         library_tree.blockSignals(True)
         try:
             item.setData(0, core.Qt.UserRole, rule)
@@ -2815,13 +2866,6 @@ def setup_gui_qt() -> None:
                         item.setData(0, core.Qt.UserRole, rule)
                     finally:
                         library_tree.blockSignals(False)
-                    selected = _selected_items()
-                    if selected and selected[0] == item:
-                        enabled_box.blockSignals(True)
-                        try:
-                            enabled_box.setChecked(is_checked)
-                        finally:
-                            enabled_box.blockSignals(False)
                     auto_save_rules()
 
     def _action_toggle_selected() -> None:
@@ -3656,7 +3700,7 @@ def setup_gui_qt() -> None:
 
         result = run_qt_export_all_titles_to_path(path)
         if result.get('success'):
-            QMessageBox.information(window, 'Export Complete', str(result.get('message', 'Export completed successfully.')))
+            _set_status(str(result.get('message', 'Export completed successfully.')), 5000)
         else:
             QMessageBox.warning(window, 'Export Failed', str(result.get('message', 'Failed to export rules.')))
 
@@ -3664,13 +3708,13 @@ def setup_gui_qt() -> None:
         """Handle the export selected UI action."""
         selected = _selected_rule_names()
         if not selected:
-            QMessageBox.information(window, 'Export', 'Select one or more rules first.')
+            _set_status('Export failed: No rules selected.', 5000)
             return
         path, _ = QFileDialog.getSaveFileName(window, 'Export Selected Titles', '', 'JSON Files (*.json);;All Files (*)')
         if not path:
             return
         result = run_qt_export_selected_titles_to_path(path, selected)
-        QMessageBox.information(window, 'Export', str(result.get('message', 'Export done')))
+        _set_status(str(result.get('message', 'Export done')), 5000)
 
     def _action_delete_selected() -> None:
         """Handle the delete selected UI action."""
@@ -3695,7 +3739,7 @@ def setup_gui_qt() -> None:
             )
 
         result = run_qt_remove_titles_by_rule_names(selected)
-        QMessageBox.information(window, 'Delete', str(result.get('message', 'Done')))
+        _set_status(str(result.get('message', 'Done')), 5000)
         _refresh_library_tree()
 
     def _action_view_trash() -> None:
@@ -3794,37 +3838,46 @@ def setup_gui_qt() -> None:
             if QMessageBox.question(window, 'Confirm', 'Clear all loaded titles?') != QMessageBox.Yes:
                 return
         result = run_qt_clear_all_titles()
-        QMessageBox.information(window, 'Clear All', str(result.get('message', 'Cleared')))
+        _set_status(str(result.get('message', 'Cleared')), 5000)
         _refresh_library_tree()
 
     def _action_validate_all() -> None:
         """Handle the validate all UI action."""
         try:
+            # Clear previous highlights
+            for item in _iter_tree_items():
+                for col in range(item.columnCount()):
+                    item.setData(col, core.Qt.BackgroundRole, None)
+                    item.setData(col, core.Qt.ForegroundRole, None)
+
             current = getattr(config, 'ALL_TITLES', {}) or {}
             if not isinstance(current, dict):
                 current = {}
 
-            entries: list[tuple[str, dict[str, object]]] = []
-            for _group, items in current.items():
-                if not isinstance(items, list):
-                    continue
-                for entry in items:
-                    if isinstance(entry, dict):
-                        title_text = str(get_display_title(entry, '') or get_rule_name(entry, '') or '(Untitled)')
-                        entries.append((title_text, entry))
+            # Build a mapping of item to its rule
+            items_to_validate = []
+            for item in _iter_tree_items():
+                entry = item.data(0, core.Qt.UserRole)
+                if isinstance(entry, dict):
+                    items_to_validate.append((item, entry))
 
-            if not entries:
+            if not items_to_validate:
                 _set_status('Validation: no titles to validate.', 4000)
                 QMessageBox.information(window, 'Validation', 'No titles to validate.')
                 return
 
             problems: list[str] = []
-            for title_text, entry in entries:
+            
+            for item, entry in items_to_validate:
+                title_text = str(get_display_title(entry, '') or get_rule_name(entry, '') or '(Untitled)')
+                errors = []
+                warnings = []
+
                 node = entry.get('node') or {}
                 node_title = node.get('title') if isinstance(node, dict) else None
                 effective_title = node_title or entry.get('mustContain') or title_text
                 if not str(effective_title or '').strip():
-                    problems.append(f'Missing title for item: {title_text}')
+                    errors.append('Missing title')
 
                 lm = entry.get('lastMatch', '')
                 if isinstance(lm, str):
@@ -3833,7 +3886,7 @@ def setup_gui_qt() -> None:
                         try:
                             json.loads(s)
                         except Exception as exc:
-                            problems.append(f'Invalid JSON lastMatch for "{title_text}": {exc}')
+                            errors.append(f'Invalid JSON lastMatch: {exc}')
 
                 save_path = entry.get('savePath') or entry.get('save_path') or ''
                 if not save_path:
@@ -3846,8 +3899,37 @@ def setup_gui_qt() -> None:
                     for folder in parts:
                         valid, reason = validate_folder_name_by_filesystem(str(folder))
                         if not valid:
-                            problems.append(f'Invalid folder in path for "{title_text}": "{folder}" - {reason}')
+                            errors.append(f'Invalid folder name in path: "{folder}" - {reason}')
                             break
+
+                    # Check for slash separator mismatch
+                    fs_type = config.get_pref('filesystem_type', 'linux')
+                    if fs_type == 'linux' and '\\' in str(save_path):
+                        warnings.append(f'Windows backslashes used in Linux path')
+                    elif fs_type == 'windows' and '/' in str(save_path):
+                        warnings.append(f'Linux forward slashes used in Windows path')
+
+                # Check metadata pollution / structural issues
+                ok, struct_warns = validate_entry_structure(entry)
+                if not ok:
+                    warnings.extend(struct_warns)
+
+                if errors:
+                    bg_brush = gui.QBrush(gui.QColor(254, 226, 226))
+                    fg_brush = gui.QBrush(gui.QColor(153, 27, 27))
+                    for col in range(item.columnCount()):
+                        item.setBackground(col, bg_brush)
+                        item.setForeground(col, fg_brush)
+                    for err in errors:
+                        problems.append(f'[Error] "{title_text}": {err}')
+                elif warnings:
+                    bg_brush = gui.QBrush(gui.QColor(254, 243, 199))
+                    fg_brush = gui.QBrush(gui.QColor(146, 64, 14))
+                    for col in range(item.columnCount()):
+                        item.setBackground(col, bg_brush)
+                        item.setForeground(col, fg_brush)
+                    for warn in warnings:
+                        problems.append(f'[Warning] "{title_text}": {warn}')
 
             result_dlg = QDialog(window)
             result_dlg.setWindowTitle('Validation Results')
@@ -3857,13 +3939,13 @@ def setup_gui_qt() -> None:
             header = QLabel()
             header.setWordWrap(True)
             if problems:
-                header.setText(f'Validation found {len(problems)} issue(s) in {len(entries)} title(s).')
+                header.setText(f'Validation found {len(problems)} issue(s) in {len(items_to_validate)} title(s).')
                 header.setStyleSheet('font-weight: 600; color: #d32f2f;')
                 _set_status(f'Validation found {len(problems)} issue(s).', 6000)
             else:
-                header.setText(f'All {len(entries)} title(s) validated successfully.')
+                header.setText(f'All {len(items_to_validate)} title(s) validated successfully.')
                 header.setStyleSheet('font-weight: 600; color: #2e7d32;')
-                _set_status(f'Validation passed for {len(entries)} title(s).', 5000)
+                _set_status(f'Validation passed for {len(items_to_validate)} title(s).', 5000)
             dlg_layout.addWidget(header)
 
             if problems:
@@ -4736,12 +4818,14 @@ def setup_gui_qt() -> None:
         selected = library_tree.selectedItems()
         
         # Block signals on widgets to prevent triggering change callbacks during selection update
-        enabled_box.blockSignals(True)
         title_edit.blockSignals(True)
         must_edit.blockSignals(True)
         save_path_edit.blockSignals(True)
         category_combo.blockSignals(True)
-        affected_feeds_edit.blockSignals(True)
+        affected_feeds_combo.blockSignals(True)
+        var_match_box.blockSignals(True)
+        var_title_box.blockSignals(True)
+        var_path_box.blockSignals(True)
         
         try:
             if not selected:
@@ -4749,9 +4833,10 @@ def setup_gui_qt() -> None:
                 must_edit.clear()
                 save_path_edit.clear()
                 category_combo.setCurrentText('')
-                affected_feeds_edit.clear()
-                enabled_box.setChecked(False)
-                enabled_box.setEnabled(False)
+                affected_feeds_combo.setCurrentText('')
+                var_match_box.setChecked(bool(config.get_pref('default_var_match_checked', True)))
+                var_title_box.setChecked(bool(config.get_pref('default_var_title_checked', False)))
+                var_path_box.setChecked(bool(config.get_pref('default_var_path_checked', False)))
                 _update_title_variations_ui()
                 return
             rule = selected[0].data(0, core.Qt.UserRole)
@@ -4761,17 +4846,28 @@ def setup_gui_qt() -> None:
             must_edit.setText(str(rule.get('mustContain', '')))
             save_path_edit.setText(str(rule.get('savePath', '')))
             category_combo.setCurrentText(str(rule.get('assignedCategory', '')))
-            affected_feeds_edit.setText(', '.join(rule.get('affectedFeeds', []) or []))
-            enabled_box.setEnabled(True)
-            enabled_box.setChecked(bool(rule.get('enabled', False)))
+            affected_feeds_combo.setCurrentText(', '.join(rule.get('affectedFeeds', []) or []))
+            
+            rule_name = rule.get('node', {}).get('title') or rule.get('ruleName', '')
+            options = config.get_pref('rule_var_options', {}) or {}
+            rule_opts = options.get(rule_name, {}) if isinstance(options, dict) else {}
+            var_match = rule_opts.get('match', config.get_pref('default_var_match_checked', True))
+            var_title = rule_opts.get('title', config.get_pref('default_var_title_checked', False))
+            var_path = rule_opts.get('path', config.get_pref('default_var_path_checked', False))
+            var_match_box.setChecked(bool(var_match))
+            var_title_box.setChecked(bool(var_title))
+            var_path_box.setChecked(bool(var_path))
+            
             _update_title_variations_ui()
         finally:
-            enabled_box.blockSignals(False)
             title_edit.blockSignals(False)
             must_edit.blockSignals(False)
             save_path_edit.blockSignals(False)
             category_combo.blockSignals(False)
-            affected_feeds_edit.blockSignals(False)
+            affected_feeds_combo.blockSignals(False)
+            var_match_box.blockSignals(False)
+            var_title_box.blockSignals(False)
+            var_path_box.blockSignals(False)
 
     def _apply_filter() -> None:
         """Apply changes for filter."""
@@ -4812,6 +4908,7 @@ def setup_gui_qt() -> None:
         _add_menu_action(menu, 'Batch Download...', lambda: _open_batch_downloader(show_name))
 
         _add_menu_action(menu, 'Bulk Edit Selected...', lambda: _action_bulk_toggle())
+        _add_menu_action(menu, 'Add Season/Year Prefix', lambda: _add_prefix_to_selected())
         _add_menu_action(menu, 'Batch Edit Title...', lambda: _action_batch_review_variations())
         _add_menu_action(menu, 'Batch Apply SubsPlease Matches...', lambda: _action_batch_apply_subsplease())
         menu.addSeparator()
@@ -4846,7 +4943,7 @@ def setup_gui_qt() -> None:
     filter_combo.currentTextChanged.connect(lambda _=None: _apply_filter())
     library_tree.itemSelectionChanged.connect(_on_selection_changed)
     library_tree.itemChanged.connect(_on_item_changed)
-    library_tree.itemDoubleClicked.connect(lambda _item=None, _col=0: _on_tree_enter())
+    library_tree.itemDoubleClicked.connect(lambda item, col: _on_tree_enter() if col != 0 else None)
     library_tree.setContextMenuPolicy(core.Qt.CustomContextMenu)
     library_tree.customContextMenuRequested.connect(_on_tree_context_menu)
     tree_shortcuts: list[object] = []
@@ -4868,7 +4965,6 @@ def setup_gui_qt() -> None:
     library_tree.keyPressEvent = _tree_key_press_event
 
     undo_btn.clicked.connect(_action_undo)
-    enabled_box.toggled.connect(lambda _: _save_current_rule_from_editor())
     clear_all_bar_btn.clicked.connect(lambda: _action_clear_all_titles())
     validate_bar_btn.clicked.connect(lambda: _action_validate_all())
     trash_bar_btn.clicked.connect(lambda: _action_view_trash())
@@ -4876,32 +4972,71 @@ def setup_gui_qt() -> None:
     must_edit.editingFinished.connect(_save_current_rule_from_editor)
     save_path_edit.editingFinished.connect(_save_current_rule_from_editor)
     category_combo.lineEdit().editingFinished.connect(_save_current_rule_from_editor)
-    affected_feeds_edit.editingFinished.connect(_save_current_rule_from_editor)
+    affected_feeds_combo.lineEdit().editingFinished.connect(_save_current_rule_from_editor)
 
     # Auto-save immediately on user text typing or category dropdown selection
     title_edit.textEdited.connect(lambda _: _save_current_rule_from_editor())
     must_edit.textEdited.connect(lambda _: _save_current_rule_from_editor())
     save_path_edit.textEdited.connect(lambda _: _save_current_rule_from_editor())
     category_combo.currentTextChanged.connect(lambda _: _save_current_rule_from_editor())
-    affected_feeds_edit.textEdited.connect(lambda _: _save_current_rule_from_editor())
+    affected_feeds_combo.currentTextChanged.connect(lambda _: _save_current_rule_from_editor())
 
     title_edit.textChanged.connect(lambda _=None: _update_title_variations_ui())
     must_edit.textChanged.connect(lambda _=None: _update_title_variations_ui())
     save_path_edit.textChanged.connect(lambda _=None: _update_title_variations_ui())
 
     def _add_prefix_to_selected() -> None:
-        """Add prefix to selected helper function."""
+        """Add Season/Year prefix to all selected rules."""
         selected = _selected_items()
         if not selected:
             return
-        current = title_edit.text().strip()
-        if not current:
-            return
         prefix = f"{season_combo.currentText()} {year_combo.currentText()} - "
-        if current.startswith(prefix):
-            return
-        title_edit.setText(prefix + current)
-        _save_current_rule_from_editor()
+        
+        library_tree.blockSignals(True)
+        try:
+            for item in selected:
+                rule = get_rule_from_item(item)
+                if not isinstance(rule, dict):
+                    continue
+                
+                # Get current title
+                node = rule.get('node') or {}
+                current_title = node.get('title') or rule.get('ruleName') or ''
+                if not current_title:
+                    continue
+                
+                # If it already starts with a prefix, we replace it.
+                import re
+                m = re.match(r'^(?:spring|summer|fall|winter)\s+\d{4}\s*-\s*', current_title, re.IGNORECASE)
+                if m:
+                    existing_prefix = m.group(0)
+                    if existing_prefix.strip().lower() == prefix.strip().lower():
+                        continue
+                    new_title = prefix + current_title[len(existing_prefix):]
+                else:
+                    new_title = prefix + current_title
+                
+                # Save to rule dict
+                node['title'] = new_title
+                rule['node'] = node
+                rule['ruleName'] = new_title
+                
+                # Update item columns
+                item.setData(0, core.Qt.UserRole, rule)
+                item.setText(2, str(new_title))
+                
+            # If the editor is showing the first selected rule, update the title edit field in UI
+            first_selected = selected[0]
+            rule = get_rule_from_item(first_selected)
+            if isinstance(rule, dict):
+                title_edit.blockSignals(True)
+                title_edit.setText(str(rule.get('node', {}).get('title') or rule.get('ruleName', '')))
+                title_edit.blockSignals(False)
+        finally:
+            library_tree.blockSignals(False)
+            
+        auto_save_rules()
+        _update_title_variations_ui()
 
     prefix_btn.clicked.connect(_add_prefix_to_selected)
 
@@ -4917,8 +5052,7 @@ def setup_gui_qt() -> None:
             refresh_btn.setEnabled(True)
             if w in active_workers:
                 active_workers.remove(w)
-            _set_status(str(result.get('fetch_status', '') or 'SubsPlease refresh completed.'), 4000)
-            QMessageBox.information(window, 'Refresh', format_refresh_result_text('SubsPlease', result))
+            _set_status(str(result.get('fetch_status', '') or 'SubsPlease refresh completed.'), 5000)
 
         active_workers.append(worker)
         worker.finished.connect(_on_subsplease_finished)
@@ -4942,9 +5076,8 @@ def setup_gui_qt() -> None:
             refresh_btn.setEnabled(True)
             if w in active_workers:
                 active_workers.remove(w)
-            _set_status(str(result.get('fetch_status', '') or 'AniList refresh completed.'), 4000)
+            _set_status(str(result.get('fetch_status', '') or 'AniList refresh completed.'), 5000)
             _update_title_variations_ui()
-            QMessageBox.information(window, 'Refresh', format_refresh_result_text('AniList', result))
 
         active_workers.append(worker)
         worker.finished.connect(_on_anilist_finished)
@@ -4983,7 +5116,7 @@ def setup_gui_qt() -> None:
             if isinstance(feeds, dict) and feeds:
                 config.save_cached_feeds(feeds)
 
-            # Re-populate category dropdowns with updated categories
+            # Re-populate category and feeds dropdowns with updated values
             try:
                 cached_cats = getattr(config, 'CACHED_CATEGORIES', {}) or {}
                 if isinstance(cached_cats, dict):
@@ -4991,6 +5124,15 @@ def setup_gui_qt() -> None:
                     category_combo.clear()
                     category_combo.addItems(sorted(str(k) for k in cached_cats.keys()))
                     category_combo.setCurrentText(current_cat)
+            except Exception:
+                pass
+            try:
+                cached_feeds = getattr(config, 'CACHED_FEEDS', {}) or {}
+                if isinstance(cached_feeds, dict):
+                    current_feed = affected_feeds_combo.currentText()
+                    affected_feeds_combo.clear()
+                    affected_feeds_combo.addItems(sorted(str(k) for k in cached_feeds.keys()))
+                    affected_feeds_combo.setCurrentText(current_feed)
             except Exception:
                 pass
 
@@ -5008,12 +5150,11 @@ def setup_gui_qt() -> None:
             entries: list[dict[str, object]] = []
             for name, data in rules.items():
                 if isinstance(data, dict):
-                    title = str(data.get('ruleName') or data.get('name') or name)
+                    title = str(name)
                     rule_entry = dict(data)
                     if not isinstance(rule_entry.get('node'), dict):
                         rule_entry['node'] = {'title': title}
-                    if not rule_entry.get('ruleName'):
-                        rule_entry['ruleName'] = title
+                    rule_entry['ruleName'] = title
                     entries.append(rule_entry)
                 else:
                     title = str(name)
@@ -5041,7 +5182,6 @@ def setup_gui_qt() -> None:
                 msg = 'No new rules were added; existing titles were already up to date.'
 
             _set_status(f'Fetch complete: {msg}', 6000)
-            QMessageBox.information(window, 'Fetch Rules', msg)
 
         worker.finished.connect(_on_fetch_finished)
         active_workers.append(worker)
@@ -5113,17 +5253,26 @@ def setup_gui_qt() -> None:
                         if rule_name and isinstance(rule_def, dict):
                             s_rules[rule_name] = copy.deepcopy(rule_def)
             
-            _set_status(
-                f"Apply result: applied {apply_result.get('applied_count', 0)}, failed {apply_result.get('failed_count', 0)}.",
-                6000,
-            )
-            QMessageBox.information(
-                window,
-                'Apply Rules Result',
-                f"Applied: {apply_result.get('applied_count', 0)}\n"
-                f"Failed: {apply_result.get('failed_count', 0)}\n"
-                f"{apply_result.get('rollback_guidance', '')}"
-            )
+            failed = int(apply_result.get('failed_count', 0) or 0)
+            rollback = str(apply_result.get('rollback_guidance', '') or '').strip()
+            
+            if failed > 0 or rollback:
+                _set_status(
+                    f"Apply failed: successfully applied {apply_result.get('applied_count', 0)}, failed {failed}.",
+                    8000,
+                )
+                QMessageBox.warning(
+                    window,
+                    'Apply Rules Result',
+                    f"Applied: {apply_result.get('applied_count', 0)}\n"
+                    f"Failed: {failed}\n\n"
+                    f"{rollback}"
+                )
+            else:
+                _set_status(
+                    f"Apply success: successfully applied {apply_result.get('applied_count', 0)} rule(s) to qBittorrent.",
+                    6000,
+                )
 
         worker.finished.connect(_on_apply_finished)
         active_workers.append(worker)
@@ -5177,7 +5326,7 @@ def setup_gui_qt() -> None:
             text = str(result.get('message', 'Drop import finished.')) if isinstance(result, dict) else 'Drop import finished.'
             if details_text:
                 text += '\n\n' + details_text
-            QMessageBox.information(window, 'Import', text)
+            _set_status(text.replace('\n', ' '), 5000)
         except Exception:
             _set_status('Drop import failed.', 5000)
             event.ignore()
@@ -5247,6 +5396,50 @@ def setup_gui_qt() -> None:
         window._theme_timer = theme_timer
     except Exception:
         pass
+
+    def _run_startup_prompt():
+        """Prompt the user on startup whether to fetch latest rules, load cached rules, or start clean."""
+        host = getattr(config, 'QBT_HOST', '')
+        if not host:
+            # No server configured. Just show local rules (already loaded on startup from qbittorrent_rules.json).
+            _refresh_library_tree()
+            return
+
+        msg_box = QMessageBox(window)
+        msg_box.setWindowTitle("Fetch Rules on Startup")
+        msg_box.setText(
+            "Do you want to fetch the latest rules from the qBittorrent server?\n\n"
+            "• Yes: Fetch rules directly from the server.\n"
+            "• No: Load last stored local rules.\n"
+            "• Cancel: Clear all and start with a clean workspace."
+        )
+        msg_box.setIcon(QMessageBox.Question)
+        
+        yes_btn = msg_box.addButton("Yes (Fetch)", QMessageBox.YesRole)
+        no_btn = msg_box.addButton("No (Load Local)", QMessageBox.NoRole)
+        clean_btn = msg_box.addButton("Cancel (Clean)", QMessageBox.RejectRole)
+        
+        msg_box.setDefaultButton(yes_btn)
+        msg_box.exec()
+        
+        clicked = msg_box.clickedButton()
+        if clicked == yes_btn:
+            config.ALL_TITLES = {}
+            _action_sync_fetch_existing()
+        elif clicked == clean_btn:
+            config.ALL_TITLES = {}
+            _refresh_library_tree()
+            _set_status("Workspace cleared. Starting clean.", 5000)
+        else:
+            _refresh_library_tree()
+            _set_status("Loaded local rule cache.", 5000)
+
+    try:
+        QTimer = getattr(core, 'QTimer')
+        QTimer.singleShot(100, _run_startup_prompt)
+    except Exception as exc:
+        logger.error("Failed to schedule startup prompt: %s", exc)
+        _refresh_library_tree()
 
     window.show()
     app.exec()

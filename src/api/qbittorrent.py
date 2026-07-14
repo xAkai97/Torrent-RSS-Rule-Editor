@@ -17,6 +17,7 @@ DUAL-BACKEND STRATEGY:
 """
 
 # Standard library imports
+import json
 import logging
 import sys
 import typing
@@ -245,6 +246,14 @@ class QBittorrentClient:
             return self._connect_with_library()
         else:
             return self._connect_with_requests()
+
+    def __enter__(self) -> QBittorrentClient:
+        """Context manager entry point."""
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Context manager exit point — auto-closes the connection."""
+        self.close()
 
     def _connect_with_library(self) -> bool:
         """
@@ -522,7 +531,6 @@ class QBittorrentClient:
 
         if self._session:
             url = f"{self.base_url}{QBT_RSS_SET_RULE}"
-            import json
             # The WebUI API expects the rule definition as a JSON string, not a dict
             data = {'ruleName': rule_name, 'ruleDef': json.dumps(rule_def)}
 
@@ -698,35 +706,33 @@ def ping_qbittorrent(protocol: str, host: str, port: str,
     if not host or not port:
         return False, "Host or port is empty"
 
+    client = QBittorrentClient(
+        protocol=protocol,
+        host=host,
+        port=port,
+        username=username,
+        password=password,
+        verify_ssl=verify_ssl,
+        ca_cert=ca_cert,
+        timeout=timeout
+    )
     try:
-        client = QBittorrentClient(
-            protocol=protocol,
-            host=host,
-            port=port,
-            username=username,
-            password=password,
-            verify_ssl=verify_ssl,
-            ca_cert=ca_cert,
-            timeout=timeout
-        )
-
         client.connect()
         version = client.get_version()
-        client.close()
-
         return True, f"Connected - version {version}"
-
     except APIConnectionError as e:
         return False, f"Connection failed: {e}"
     except QBittorrentError as e:
         return False, f"Authentication failed: {e}"
     except Exception as e:
         return False, f"Error: {e}"
+    finally:
+        client.close()
 
 
 def fetch_categories(protocol: str, host: str, port: str,
-                    username: str, password: str, verify_ssl: bool = True,
-                    ca_cert: Optional[str] = None, timeout: int = 10) -> Tuple[bool, Union[str, Dict]]:
+                     username: str, password: str, verify_ssl: bool = True,
+                     ca_cert: Optional[str] = None, timeout: int = 10) -> Tuple[bool, Union[str, Dict]]:
     """
     Connect to qBittorrent and retrieve all configured torrent categories.
 
@@ -752,26 +758,24 @@ def fetch_categories(protocol: str, host: str, port: str,
     if not host or not port:
         return False, "Host or port is empty"
 
+    client = QBittorrentClient(
+        protocol=protocol,
+        host=host,
+        port=port,
+        username=username,
+        password=password,
+        verify_ssl=verify_ssl,
+        ca_cert=ca_cert,
+        timeout=timeout
+    )
     try:
-        client = QBittorrentClient(
-            protocol=protocol,
-            host=host,
-            port=port,
-            username=username,
-            password=password,
-            verify_ssl=verify_ssl,
-            ca_cert=ca_cert,
-            timeout=timeout
-        )
-
         client.connect()
         categories = client.get_categories()
-        client.close()
-
         return True, categories
-
     except Exception as e:
         return False, str(e)
+    finally:
+        client.close()
 
 
 def fetch_feeds(protocol: str, host: str, port: str,
@@ -803,26 +807,24 @@ def fetch_feeds(protocol: str, host: str, port: str,
     if not host or not port:
         return False, "Host or port is empty"
 
+    client = QBittorrentClient(
+        protocol=protocol,
+        host=host,
+        port=port,
+        username=username,
+        password=password,
+        verify_ssl=verify_ssl,
+        ca_cert=ca_cert,
+        timeout=timeout
+    )
     try:
-        client = QBittorrentClient(
-            protocol=protocol,
-            host=host,
-            port=port,
-            username=username,
-            password=password,
-            verify_ssl=verify_ssl,
-            ca_cert=ca_cert,
-            timeout=timeout
-        )
-
         client.connect()
         feeds = client.get_feeds()
-        client.close()
-
         return True, feeds
-
     except Exception as e:
         return False, str(e)
+    finally:
+        client.close()
 
 
 def fetch_rules(protocol: str, host: str, port: str,
@@ -855,26 +857,26 @@ def fetch_rules(protocol: str, host: str, port: str,
     if not host or not port:
         return False, "Host or port is empty"
 
+    client = QBittorrentClient(
+        protocol=protocol,
+        host=host,
+        port=port,
+        username=username,
+        password=password,
+        verify_ssl=verify_ssl,
+        ca_cert=ca_cert,
+        timeout=timeout
+    )
     try:
-        client = QBittorrentClient(
-            protocol=protocol,
-            host=host,
-            port=port,
-            username=username,
-            password=password,
-            verify_ssl=verify_ssl,
-            ca_cert=ca_cert,
-            timeout=timeout
-        )
-
         client.connect()
         rules = client.get_rules()
-        client.close()
-
         return True, rules
-
     except Exception as e:
         return False, str(e)
+    finally:
+        client.close()
+
+
 
 
 # Public API — these are the symbols available when doing `from src.api.qbittorrent import *`

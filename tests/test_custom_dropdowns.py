@@ -1,18 +1,23 @@
 """
 Unit tests for custom dropdown buttons and sub-actions configuration.
 """
-import sys
 import pytest
-from PySide6.QtWidgets import QApplication, QPushButton, QMenu, QWidget, QVBoxLayout
-from PySide6.QtCore import Qt
-from src.config import config
-from src.gui_qt.main_window import (
-    DEFAULT_DROPDOWN_SUBACTIONS,
-    SUBACTION_METADATA,
-    DEFAULT_BUTTON_METADATA,
-)
 
-@pytest.mark.skipif(sys.platform.startswith("win") is False, reason="Windows only test")
+try:
+    from PySide6.QtWidgets import QApplication, QPushButton, QMenu, QWidget, QVBoxLayout
+    from PySide6.QtCore import Qt
+    from src.gui_qt.main_window import (
+        DEFAULT_DROPDOWN_SUBACTIONS,
+        SUBACTION_METADATA,
+        DEFAULT_BUTTON_METADATA,
+    )
+    pyside_available = True
+except ImportError:
+    pyside_available = False
+
+pytestmark = pytest.mark.skipif(not pyside_available, reason="PySide6 is not installed")
+
+
 def test_data_structures():
     """Verify that composite sub-action metadata and default button metadata are populated correctly."""
     # Verify subaction definitions

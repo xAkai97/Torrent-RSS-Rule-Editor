@@ -1,8 +1,13 @@
-"""Tests for Qt drag-and-drop import aggregation helpers."""
-
+import pytest
 from pathlib import Path
 
-from src.gui_qt.main_window import run_qt_import_dropped_paths
+try:
+    from src.gui_qt.main_window import run_qt_import_dropped_paths
+    pyside_available = True
+except ImportError:
+    pyside_available = False
+
+pytestmark = pytest.mark.skipif(not pyside_available, reason="PySide6 is not installed")
 
 
 def test_run_qt_import_dropped_paths_imports_supported_files(tmp_path: Path):

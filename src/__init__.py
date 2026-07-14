@@ -35,8 +35,6 @@ __author__ = "Maintainer"
 # Format: { attribute_name: (module_path_relative_to_src, attribute_within_module_or_None) }
 # If the attribute name is None, the entire module is returned.
 _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
-	'setup_gui': ('gui', 'setup_gui'),
-	'exit_handler': ('gui', 'exit_handler'),
 	'qbittorrent_api': ('api.qbittorrent', None),
 	'rss_rules': ('rss_rules', None),
 	'backup': ('backup', None),
@@ -65,4 +63,4 @@ def __getattr__(name: str):
 
 
 # Public API of this package
-__all__ = ["config", "setup_gui", "exit_handler", "qbittorrent_api", "rss_rules", "backup"]
+__all__ = ["config", "qbittorrent_api", "rss_rules", "backup"]

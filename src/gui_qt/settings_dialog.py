@@ -346,6 +346,9 @@ class SettingsDialog(QDialog):
         categories_tree = None
         defaults_feeds_edit = None
         ask_delete_confirm_box = None
+        default_var_match_box = None
+        default_var_title_box = None
+        default_var_path_box = None
         prefix_imports_box = None
         auto_sanitize_box = None
         pre_import_check_box = None
@@ -573,6 +576,18 @@ class SettingsDialog(QDialog):
                 section_layout.addWidget(QLabel('Default Affected Feeds (comma-separated):'))
                 section_layout.addWidget(defaults_feeds_edit)
                 section_layout.addWidget(ask_delete_confirm_box)
+                default_var_match_box = QCheckBox('Apply variations to Match Pattern by default')
+                default_var_match_box.setChecked(bool(config.get_pref('default_var_match_checked', True)))
+                default_var_match_box.setToolTip('Check this to apply anime title variations to the Match Pattern by default.')
+                default_var_title_box = QCheckBox('Apply variations to Title by default')
+                default_var_title_box.setChecked(bool(config.get_pref('default_var_title_checked', False)))
+                default_var_title_box.setToolTip('Check this to apply anime title variations to the rule Title by default.')
+                default_var_path_box = QCheckBox('Apply variations to Save Path by default')
+                default_var_path_box.setChecked(bool(config.get_pref('default_var_path_checked', False)))
+                default_var_path_box.setToolTip('Check this to apply anime title variations to the Save Path by default.')
+                section_layout.addWidget(default_var_match_box)
+                section_layout.addWidget(default_var_title_box)
+                section_layout.addWidget(default_var_path_box)
             elif tab_name == 'Import/Export':
                 prefix_imports_box = QCheckBox('Enable Season/Year prefix logic')
                 prefix_imports_box.setChecked(bool(config.get_pref('prefix_imports', True)))
@@ -1715,6 +1730,58 @@ class SettingsDialog(QDialog):
                 section_layout.addWidget(QLabel(f'{tab_name} settings are available in this preview tab.'))
             tab_layout.addWidget(section)
             if tab_name != 'Action Bar':
+                reset_tab_btn = QPushButton(f"Reset {tab_name} Defaults")
+                reset_tab_btn.setStyleSheet("max-width: 180px;")
+                def _make_reset_tab_action(tname=tab_name):
+                    def _reset_action():
+                        if tname == 'Defaults':
+                            if defaults_save_path_edit is not None: defaults_save_path_edit.clear()
+                            if defaults_download_path_edit is not None: defaults_download_path_edit.clear()
+                            if defaults_category_combo is not None: defaults_category_combo.setCurrentText('')
+                            if defaults_feeds_edit is not None: defaults_feeds_edit.clear()
+                            if ask_delete_confirm_box is not None: ask_delete_confirm_box.setChecked(True)
+                            if default_var_match_box is not None: default_var_match_box.setChecked(True)
+                            if default_var_title_box is not None: default_var_title_box.setChecked(False)
+                            if default_var_path_box is not None: default_var_path_box.setChecked(False)
+                        elif tname == 'Import/Export':
+                            if prefix_imports_box is not None: prefix_imports_box.setChecked(True)
+                            if auto_sanitize_box is not None: auto_sanitize_box.setChecked(True)
+                            if pre_import_check_box is not None: pre_import_check_box.setChecked(True)
+                            if auto_import_sanitize_box is not None: auto_import_sanitize_box.setChecked(True)
+                            if show_import_check_box is not None: show_import_check_box.setChecked(True)
+                        elif tname == 'Sanitization':
+                            if filesystem_combo is not None: filesystem_combo.setCurrentText('linux')
+                            if sanitize_replace_all_box is not None: sanitize_replace_all_box.setChecked(True)
+                            if sanitize_global_char_edit is not None: sanitize_global_char_edit.setText('_')
+                            if sanitize_char_edits:
+                                for ch, edit in sanitize_char_edits.items():
+                                    edit.setText(ch)
+                        elif tname == 'Appearance':
+                            if theme_combo is not None: theme_combo.setCurrentText('light')
+                            if time_format_combo is not None: time_format_combo.setCurrentText('24h')
+                            if view_mode_combo is not None: view_mode_combo.setCurrentText('expanded')
+                        elif tname == 'Font && Style':
+                            if font_size_spin is not None: font_size_spin.setValue(10)
+                            if font_family_combo is not None: font_family_combo.setCurrentFont(QFont('Segoe UI'))
+                            if ui_style_combo is not None: ui_style_combo.setCurrentText('clam')
+                        elif tname == 'Diagnostics':
+                            if level_combo is not None: level_combo.setCurrentText('INFO')
+                        elif tname == 'API Rate Limits':
+                            if anilist_interval_spin is not None: anilist_interval_spin.setValue(15)
+                            if subsplease_interval_spin is not None: subsplease_interval_spin.setValue(15)
+                            if save_subsplease_cache_box is not None: save_subsplease_cache_box.setChecked(False)
+                            if retention_mode_combo is not None: retention_mode_combo.setCurrentText(CacheRetentionMode.AGE)
+                            if cache_ttl_spin is not None: cache_ttl_spin.setValue(30)
+                            if cache_max_mb_spin is not None: cache_max_mb_spin.setValue(10)
+                            if refresh_scope_combo is not None: refresh_scope_combo.setCurrentText(AniListRefreshScope.TITLE_ONLY)
+                            if lang_romaji_box is not None: lang_romaji_box.setChecked(True)
+                            if lang_english_box is not None: lang_english_box.setChecked(True)
+                            if lang_native_box is not None: lang_native_box.setChecked(True)
+                            if lang_synonym_box is not None: lang_synonym_box.setChecked(True)
+                            if lang_synonym_other_box is not None: lang_synonym_other_box.setChecked(True)
+                    return _reset_action
+                reset_tab_btn.clicked.connect(_make_reset_tab_action())
+                tab_layout.addWidget(reset_tab_btn)
                 tab_layout.addStretch()
             tabs.addTab(tab_scroll, tab_name)
 
@@ -1769,6 +1836,12 @@ class SettingsDialog(QDialog):
                 config.set_pref('default_affected_feeds_manual', (defaults_feeds_edit.text().strip() if defaults_feeds_edit is not None else ''))
                 if ask_delete_confirm_box is not None:
                     config.set_pref('confirm_delete_titles', bool(ask_delete_confirm_box.isChecked()))
+                if default_var_match_box is not None:
+                    config.set_pref('default_var_match_checked', bool(default_var_match_box.isChecked()))
+                if default_var_title_box is not None:
+                    config.set_pref('default_var_title_checked', bool(default_var_title_box.isChecked()))
+                if default_var_path_box is not None:
+                    config.set_pref('default_var_path_checked', bool(default_var_path_box.isChecked()))
 
             if prefix_imports_box is not None:
                 config.set_pref('prefix_imports', bool(prefix_imports_box.isChecked()))
@@ -1907,7 +1980,63 @@ class SettingsDialog(QDialog):
         
             dialog.accept()
 
+        reset_all_btn = QPushButton('Reset All Settings')
+        
+        def _reset_all_settings():
+            # Trigger all tab resets
+            if defaults_save_path_edit is not None: defaults_save_path_edit.clear()
+            if defaults_download_path_edit is not None: defaults_download_path_edit.clear()
+            if defaults_category_combo is not None: defaults_category_combo.setCurrentText('')
+            if defaults_feeds_edit is not None: defaults_feeds_edit.clear()
+            if ask_delete_confirm_box is not None: ask_delete_confirm_box.setChecked(True)
+            if default_var_match_box is not None: default_var_match_box.setChecked(True)
+            if default_var_title_box is not None: default_var_title_box.setChecked(False)
+            if default_var_path_box is not None: default_var_path_box.setChecked(False)
+            
+            if prefix_imports_box is not None: prefix_imports_box.setChecked(True)
+            if auto_sanitize_box is not None: auto_sanitize_box.setChecked(True)
+            if pre_import_check_box is not None: pre_import_check_box.setChecked(True)
+            if auto_import_sanitize_box is not None: auto_import_sanitize_box.setChecked(True)
+            if show_import_check_box is not None: show_import_check_box.setChecked(True)
+            
+            if filesystem_combo is not None: filesystem_combo.setCurrentText('linux')
+            if sanitize_replace_all_box is not None: sanitize_replace_all_box.setChecked(True)
+            if sanitize_global_char_edit is not None: sanitize_global_char_edit.setText('_')
+            if sanitize_char_edits:
+                for ch, edit in sanitize_char_edits.items():
+                    edit.setText(ch)
+                
+            if theme_combo is not None: theme_combo.setCurrentText('light')
+            if time_format_combo is not None: time_format_combo.setCurrentText('24h')
+            if view_mode_combo is not None: view_mode_combo.setCurrentText('expanded')
+            
+            _reset_action_bar_settings()
+            
+            if font_size_spin is not None: font_size_spin.setValue(10)
+            if font_family_combo is not None: font_family_combo.setCurrentFont(QFont('Segoe UI'))
+            if ui_style_combo is not None: ui_style_combo.setCurrentText('clam')
+            
+            if level_combo is not None: level_combo.setCurrentText('INFO')
+            
+            if anilist_interval_spin is not None: anilist_interval_spin.setValue(15)
+            if subsplease_interval_spin is not None: subsplease_interval_spin.setValue(15)
+            if save_subsplease_cache_box is not None: save_subsplease_cache_box.setChecked(False)
+            if retention_mode_combo is not None: retention_mode_combo.setCurrentText(CacheRetentionMode.AGE)
+            if cache_ttl_spin is not None: cache_ttl_spin.setValue(30)
+            if cache_max_mb_spin is not None: cache_max_mb_spin.setValue(10)
+            if refresh_scope_combo is not None: refresh_scope_combo.setCurrentText(AniListRefreshScope.TITLE_ONLY)
+            if lang_romaji_box is not None: lang_romaji_box.setChecked(True)
+            if lang_english_box is not None: lang_english_box.setChecked(True)
+            if lang_native_box is not None: lang_native_box.setChecked(True)
+            if lang_synonym_box is not None: lang_synonym_box.setChecked(True)
+            if lang_synonym_other_box is not None: lang_synonym_other_box.setChecked(True)
+            
+            QMessageBox.information(dialog, "Settings Reset", "All settings inputs have been reset to defaults. Click 'Save & Close' to persist these changes.")
+            
+        reset_all_btn.clicked.connect(_reset_all_settings)
+
         save_btn.clicked.connect(_save_settings_preview)
+        footer.addWidget(reset_all_btn)
         footer.addWidget(cancel_btn)
         footer.addWidget(save_btn)
         dialog_layout.addLayout(footer)

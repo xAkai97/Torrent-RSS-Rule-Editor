@@ -1,7 +1,5 @@
 requests
-qbittorrent-api
-configparser
-Pillow
-tkinterdnd2  # Optional: enables drag-and-drop file import
+qbittorrent-api  # Optional: preferred qBittorrent API backend; falls back to raw HTTP requests if missing
+PySide6  # Required: primary Qt-based GUI framework
 cryptography  # Optional: encrypt credentials in config.ini when available
-PySide6  # Optional: enables --ui=qt preview shell during phased migration
+pytest-qt  # Optional: required for running headless GUI unit tests

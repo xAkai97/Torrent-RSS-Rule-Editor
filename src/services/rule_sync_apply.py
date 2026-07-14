@@ -403,8 +403,10 @@ def apply_rule_sync_plan(changes: list[dict[str, Any]]) -> Dict[str, Any]:
 
     applied: list[str] = []
     failed: list[str] = []
+    conn_ok = False
     try:
         client.connect()
+        conn_ok = True
         # Apply each change individually for partial-failure resilience
         for change in changes:
             rule_name = str(change.get('rule_name', '') or '').strip()
@@ -418,8 +420,12 @@ def apply_rule_sync_plan(changes: list[dict[str, Any]]) -> Dict[str, Any]:
             else:
                 failed.append(rule_name)
     except Exception:
-        # Connection or unexpected error — mark all remaining as failed
-        failed.extend([str(c.get('rule_name', '')) for c in changes if str(c.get('rule_name', '') or '').strip()])
+        # Connection or unexpected error — mark only unprocessed rules as failed
+        already_processed = set(applied) | set(failed)
+        for c in changes:
+            name = str(c.get('rule_name', '') or '').strip()
+            if name and name not in already_processed:
+                failed.append(name)
     finally:
         try:
             client.close()
@@ -427,16 +433,20 @@ def apply_rule_sync_plan(changes: list[dict[str, Any]]) -> Dict[str, Any]:
             pass  # Best-effort cleanup
 
     # Build context-aware rollback guidance
-    success = len(failed) == 0
-    if success:
-        guidance = 'Apply completed. Reload snapshot to verify server state.'
-    elif applied:
-        guidance = (
-            'Partial apply failure. Reload snapshot, compare applied rules, then re-run dry run. '
-            'If needed, restore previous values by reapplying with prior enabled states.'
-        )
+    if not conn_ok:
+        success = False
+        guidance = 'Connection failed. Could not connect to qBittorrent server.'
     else:
-        guidance = 'No rules applied. Fix connectivity/validation issues, rerun dry run, then apply.'
+        success = len(failed) == 0
+        if success:
+            guidance = 'Apply completed. Reload snapshot to verify server state.'
+        elif applied:
+            guidance = (
+                'Partial apply failure. Reload snapshot, compare applied rules, then re-run dry run. '
+                'If needed, restore previous values by reapplying with prior enabled states.'
+            )
+        else:
+            guidance = 'No rules applied. Fix connectivity/validation issues, rerun dry run, then apply.'
 
     return {
         'applied_count': len(applied),

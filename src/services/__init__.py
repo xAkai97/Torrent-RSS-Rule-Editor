@@ -11,7 +11,7 @@ Submodules:
   - batch_downloader    → Bulk torrent download queue management
   - connection_status   → Connection mode display and setup wizard triggers
   - file_operations     → Import/export of rules, titles, and JSON files
-  - gui_bindings        → Keyboard shortcut and drag-drop wiring for Tk fallback
+  - gui_bindings        → Keyboard shortcut and drag-drop wiring
   - language_detection  → Heuristic language classification for AniList synonyms
   - rule_drafts         → In-progress rule editing state management
   - rule_editor         → Rule creation, modification, and template application
@@ -19,16 +19,7 @@ Submodules:
   - rule_sync_apply     → Low-level sync execution (apply changes to qBittorrent)
   - rules               → Re-exports from src.rss_rules (convenience alias)
   - server_snapshot     → Capture and compare qBittorrent server state
+
+Imports are explicit rather than wildcard to keep the public API clear
+and avoid unintentional symbol leakage between submodules.
 """
-
-from .backup import *
-from .connection_status import *
-from .gui_bindings import *
-from .rule_drafts import *
-from .rule_editor import *
-from .rule_sync import *
-from .rule_sync_apply import *
-from .rules import *
-from .server_snapshot import *
-
-__all__ = []

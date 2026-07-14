@@ -823,10 +823,11 @@ class AppConfig:
             True if the write was successfully queued (not necessarily completed).
         """
         try:
-            # Update the in-memory cache immediately (for reads)
-            self._cache_data_in_memory = data
             # Deep copy for the background thread (data might change in memory while writing)
             data_copy = copy.deepcopy(data)
+            # Update the in-memory cache only after deepcopy succeeds, to avoid
+            # diverging in-memory vs on-disk state if deepcopy throws.
+            self._cache_data_in_memory = data
             cache_file = self.CACHE_FILE  # Capture path to prevent race conditions
 
             def _write_thread():
@@ -1054,22 +1055,22 @@ class AppConfig:
         feeds_str = ', '.join(default_affected_feeds) if default_affected_feeds else ''
 
         cfg['QBITTORRENT_API'] = {
-                'protocol': protocol,
-                'host': host,
-                'port': normalized_port,
-                'username': user,
+            'protocol': protocol,
+            'host': host,
+            'port': normalized_port,
+            'username': user,
             'password': self._encrypt_secret(password),  # Encrypt before storing
-                'mode': mode,
-                'verify_ssl': str(verify_ssl),
-                'ca_cert': self.QBT_CA_CERT or '',
-                'default_save_path': default_save_path,
-                'default_download_path': self.DEFAULT_DOWNLOAD_PATH or '',
+            'mode': mode,
+            'verify_ssl': str(verify_ssl),
+            'ca_cert': self.QBT_CA_CERT or '',
+            'default_save_path': default_save_path,
+            'default_download_path': self.DEFAULT_DOWNLOAD_PATH or '',
             'default_category': default_category,
             'default_affected_feeds': feeds_str,
         }
 
         try:
-            with open(self.CONFIG_FILE, 'w') as f:
+            with open(self.CONFIG_FILE, 'w', encoding='utf-8') as f:
                 cfg.write(f)
         except Exception as e:
             logger.error(f"Failed to save config to INI: {e}")
